@@ -34,7 +34,21 @@ Use **Stripe Connect Express** with **destination charges** as the v1 marketplac
 
 ### Payout timing
 
-Configure connected accounts with `delay_days: 30`. Stripe automatically pays out to creator bank accounts after the hold.
+Configure connected accounts with the [Balance Settings API](https://docs.stripe.com/connect/manage-payout-schedule):
+
+```typescript
+stripe.balanceSettings.update(
+  {
+    payments: {
+      payouts: { schedule: { interval: 'daily' } },
+      settlement_timing: { delay_days_override: 30 },
+    },
+  },
+  { stripeAccount: connectAccountId },
+);
+```
+
+Do **not** rely on legacy `accounts.update({ settings: { payouts: { schedule: { delay_days }}}})` — Stripe moved delay control to `settlement_timing.delay_days_override` (max 31).
 
 Internally, `CreatorTransaction.availableAt = paidAt + 30 days` and status `PENDING` until matured to `AVAILABLE`.
 

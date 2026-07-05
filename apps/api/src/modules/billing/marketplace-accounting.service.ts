@@ -13,6 +13,7 @@ import {
   calculatePlatformFee,
 } from '@smartklass/shared';
 import { PrismaService } from '../../common/database/prisma.service';
+import { CreatorPayoutPolicyService } from './creator-payout-policy.service';
 import { mergeJsonMetadata, metadataNumber, metadataString } from './merge-metadata';
 import Stripe from 'stripe';
 
@@ -49,7 +50,10 @@ type RecordSaleInput = {
 export class MarketplaceAccountingService {
   private readonly logger = new Logger(MarketplaceAccountingService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly payoutPolicy: CreatorPayoutPolicyService,
+  ) {}
 
   async recordSaleFromPaymentMetadata(
     tx: Prisma.TransactionClient,
@@ -110,8 +114,13 @@ export class MarketplaceAccountingService {
     }
 
     const paidAt = input.paidAt ?? new Date();
-    const availableAt = new Date(paidAt);
-    availableAt.setDate(availableAt.getDate() + CREATOR_PAYOUT_DELAY_DAYS);
+    const payoutDelayDays =
+      (await this.payoutPolicy.resolveDelayDays(input.creatorProfileId)) ??
+      CREATOR_PAYOUT_DELAY_DAYS;
+    const availableAt = this.payoutPolicy.buildAvailableAt(
+      paidAt,
+      payoutDelayDays,
+    );
 
     const transaction = await tx.creatorTransaction.create({
       data: {
@@ -134,7 +143,7 @@ export class MarketplaceAccountingService {
         availableAt,
         metadata: mergeJsonMetadata(null, {
           feeRuleLabel: input.feeRuleLabel ?? null,
-          payoutDelayDays: CREATOR_PAYOUT_DELAY_DAYS,
+          payoutDelayDays,
         }),
       },
     });

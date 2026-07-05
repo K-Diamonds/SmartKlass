@@ -2,7 +2,7 @@ import { Prisma } from '@smartklass/database';
 
 export function mergeJsonMetadata(
   existing: Prisma.JsonValue | null | undefined,
-  patch: Record<string, Prisma.InputJsonValue>,
+  patch: Record<string, Prisma.InputJsonValue | null | undefined>,
 ): Prisma.InputJsonValue {
   const base =
     existing &&
@@ -12,7 +12,14 @@ export function mergeJsonMetadata(
       ? { ...(existing as Record<string, Prisma.InputJsonValue>) }
       : {};
 
-  return { ...base, ...patch };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined || value === null) {
+      continue;
+    }
+    base[key] = value;
+  }
+
+  return base;
 }
 
 export function metadataNumber(

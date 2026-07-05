@@ -55,14 +55,14 @@ Fee math lives in `packages/shared/src/platform-fees.ts`.
 
 Connected accounts are configured with:
 
+Connected accounts are configured via the **Balance Settings API** (not legacy `accounts.settings.payouts`):
+
 ```typescript
-settings.payouts.schedule = {
-  interval: 'daily',
-  delay_days: CREATOR_PAYOUT_DELAY_DAYS, // 30
-}
+payments.payouts.schedule.interval = 'daily'
+payments.settlement_timing.delay_days_override = 30  // max 31
 ```
 
-This is a **Stripe-managed hold**, not an internal escrow release queue.
+`delay_days_override` controls how long charge funds are held before becoming available for automatic payout. SmartKlass also mirrors this with `CreatorTransaction.availableAt = paidAt + 30 days`.
 
 ## Gating rules
 

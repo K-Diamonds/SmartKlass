@@ -13,4 +13,18 @@ export default () => ({
   },
   apiUrl: process.env.API_URL ?? 'http://localhost:4000',
   webUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+  staff: {
+    userIds: (process.env.STAFF_USER_IDS ?? '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean),
+    emails: (process.env.STAFF_EMAILS ?? '')
+      .split(',')
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean),
+  },
+  adminRateLimit: {
+    maxRequests: parseInt(process.env.ADMIN_RATE_LIMIT_MAX ?? '120', 10),
+    windowMs: parseInt(process.env.ADMIN_RATE_LIMIT_WINDOW_MS ?? '60000', 10),
+  },
 });

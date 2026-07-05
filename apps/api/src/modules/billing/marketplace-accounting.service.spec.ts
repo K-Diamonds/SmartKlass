@@ -9,9 +9,19 @@ import {
 import { CREATOR_PAYOUT_DELAY_DAYS } from '@smartklass/shared';
 import { PrismaService } from '../../common/database/prisma.service';
 import { MarketplaceAccountingService } from './marketplace-accounting.service';
+import { CreatorPayoutPolicyService } from './creator-payout-policy.service';
 
 describe('MarketplaceAccountingService', () => {
   let service: MarketplaceAccountingService;
+
+  const payoutPolicyMock = {
+    resolveDelayDays: jest.fn().mockResolvedValue(CREATOR_PAYOUT_DELAY_DAYS),
+    buildAvailableAt: jest.fn((paidAt: Date, days: number) => {
+      const availableAt = new Date(paidAt);
+      availableAt.setDate(availableAt.getDate() + days);
+      return availableAt;
+    }),
+  };
 
   const txMock = {
     creatorTransaction: {
@@ -77,6 +87,10 @@ describe('MarketplaceAccountingService', () => {
       providers: [
         MarketplaceAccountingService,
         { provide: PrismaService, useValue: prismaMock },
+        {
+          provide: CreatorPayoutPolicyService,
+          useValue: payoutPolicyMock,
+        },
       ],
     }).compile();
 

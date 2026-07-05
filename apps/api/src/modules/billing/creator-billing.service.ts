@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -12,6 +13,7 @@ import {
 import { PaymentStatus } from '@smartklass/database';
 import { PrismaService } from '../../common/database/prisma.service';
 import { MarketplaceAccountingService } from './marketplace-accounting.service';
+import { CreatorPayoutPolicyService } from './creator-payout-policy.service';
 import { StripeClientService } from './stripe-client.service';
 import {
   StripeConnectLinkDto,
@@ -21,10 +23,13 @@ import {
 
 @Injectable()
 export class CreatorBillingService {
+  private readonly logger = new Logger(CreatorBillingService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly stripeClient: StripeClientService,
     private readonly marketplaceAccounting: MarketplaceAccountingService,
+    private readonly payoutPolicy: CreatorPayoutPolicyService,
   ) {}
 
   async getWalletForUser(userId: string) {
@@ -48,6 +53,9 @@ export class CreatorBillingService {
   ): Promise<CreatorPayoutSummaryDto> {
     const profile = await this.getCreatorProfileOrThrow(userId);
     const currency = 'USD';
+    const payoutDelayDays =
+      (await this.payoutPolicy.resolveDelayDays(profile.id)) ??
+      CREATOR_PAYOUT_DELAY_DAYS;
     const ledger = await this.marketplaceAccounting.getLedgerBalances(
       profile.id,
       currency,
@@ -62,7 +70,7 @@ export class CreatorBillingService {
       platformFeePercent: PLATFORM_FEE_PERCENT,
       platformFeeMinimumCents: PLATFORM_FEE_MIN_CENTS,
       stripeFeesCents: 0,
-      payoutDelayDays: CREATOR_PAYOUT_DELAY_DAYS,
+      payoutDelayDays,
       currency,
     };
 
@@ -100,7 +108,7 @@ export class CreatorBillingService {
         ).toISOString();
       } else if (pendingBalanceCents > 0) {
         const estimated = new Date();
-        estimated.setDate(estimated.getDate() + CREATOR_PAYOUT_DELAY_DAYS);
+        estimated.setDate(estimated.getDate() + payoutDelayDays);
         nextPayoutDate = estimated.toISOString();
       } else if (availableBalanceCents > 0) {
         const estimated = new Date();
@@ -122,7 +130,7 @@ export class CreatorBillingService {
         platformFeePercent: PLATFORM_FEE_PERCENT,
         platformFeeMinimumCents: PLATFORM_FEE_MIN_CENTS,
         stripeFeesCents,
-        payoutDelayDays: CREATOR_PAYOUT_DELAY_DAYS,
+        payoutDelayDays,
         currency,
       };
     } catch {
@@ -180,6 +188,9 @@ export class CreatorBillingService {
   async getStripeConnectStatus(userId: string): Promise<StripeConnectStatusDto> {
     const profile = await this.getCreatorProfileOrThrow(userId);
     const stripeConfigured = this.stripeClient.isConfigured();
+    const payoutDelayDays =
+      (await this.payoutPolicy.resolveDelayDays(profile.id)) ??
+      CREATOR_PAYOUT_DELAY_DAYS;
 
     if (!profile.stripeConnectAccountId) {
       return {
@@ -188,7 +199,7 @@ export class CreatorBillingService {
         chargesEnabled: false,
         detailsSubmitted: false,
         stripeConfigured,
-        payoutDelayDays: CREATOR_PAYOUT_DELAY_DAYS,
+        payoutDelayDays,
       };
     }
 
@@ -199,7 +210,7 @@ export class CreatorBillingService {
         chargesEnabled: false,
         detailsSubmitted: false,
         stripeConfigured: false,
-        payoutDelayDays: CREATOR_PAYOUT_DELAY_DAYS,
+        payoutDelayDays,
       };
     }
 
@@ -208,7 +219,10 @@ export class CreatorBillingService {
         .getClient()
         .accounts.retrieve(profile.stripeConnectAccountId);
 
-      await this.syncConnectPayoutSchedule(profile.stripeConnectAccountId);
+      await this.syncConnectPayoutSchedule(
+        profile.stripeConnectAccountId,
+        profile.id,
+      );
 
       return {
         connected: true,
@@ -216,7 +230,7 @@ export class CreatorBillingService {
         chargesEnabled: account.charges_enabled ?? false,
         detailsSubmitted: account.details_submitted ?? false,
         stripeConfigured: true,
-        payoutDelayDays: CREATOR_PAYOUT_DELAY_DAYS,
+        payoutDelayDays,
       };
     } catch {
       return {
@@ -225,7 +239,7 @@ export class CreatorBillingService {
         chargesEnabled: false,
         detailsSubmitted: false,
         stripeConfigured,
-        payoutDelayDays: CREATOR_PAYOUT_DELAY_DAYS,
+        payoutDelayDays,
       };
     }
   }
@@ -249,10 +263,20 @@ export class CreatorBillingService {
       );
     }
 
+    const canPayout = await this.payoutPolicy.canReceivePayouts(creatorProfileId);
+    if (!canPayout) {
+      throw new BadRequestException(
+        'This course is temporarily unavailable while the creator account is under review.',
+      );
+    }
+
     const stripe = this.stripeClient.getClient();
     const account = await stripe.accounts.retrieve(profile.stripeConnectAccountId);
 
-    await this.syncConnectPayoutSchedule(profile.stripeConnectAccountId);
+    await this.syncConnectPayoutSchedule(
+      profile.stripeConnectAccountId,
+      creatorProfileId,
+    );
 
     if (!account.charges_enabled) {
       throw new BadRequestException(
@@ -269,19 +293,97 @@ export class CreatorBillingService {
     return profile.stripeConnectAccountId;
   }
 
-  private async syncConnectPayoutSchedule(accountId: string) {
-    const stripe = this.stripeClient.getClient();
+  async syncConnectPayoutScheduleForCreator(creatorProfileId: string) {
+    const profile = await this.prisma.creatorProfile.findFirst({
+      where: { id: creatorProfileId, deletedAt: null },
+      select: { stripeConnectAccountId: true },
+    });
 
-    await stripe.accounts.update(accountId, {
-      settings: {
-        payouts: {
-          schedule: {
-            interval: 'daily',
-            delay_days: CREATOR_PAYOUT_DELAY_DAYS,
+    if (!profile?.stripeConnectAccountId) {
+      return null;
+    }
+
+    return this.syncConnectPayoutSchedule(
+      profile.stripeConnectAccountId,
+      creatorProfileId,
+    );
+  }
+
+  private async syncConnectPayoutSchedule(
+    accountId: string,
+    creatorProfileId: string,
+  ) {
+    const stripe = this.stripeClient.getClient();
+    const delayDays =
+      (await this.payoutPolicy.resolveDelayDays(creatorProfileId)) ??
+      CREATOR_PAYOUT_DELAY_DAYS;
+
+    if (delayDays == null) {
+      this.logger.warn(
+        `Skipping Stripe payout schedule sync for suspended creator ${creatorProfileId}.`,
+      );
+      return null;
+    }
+
+    try {
+      const settings = await stripe.balanceSettings.update(
+        {
+          payments: {
+            payouts: {
+              schedule: {
+                interval: 'daily',
+              },
+            },
+            settlement_timing: {
+              delay_days_override: delayDays,
+            },
           },
         },
-      },
-    });
+        { stripeAccount: accountId },
+      );
+
+      const effectiveDelay =
+        settings.payments.settlement_timing.delay_days_override ??
+        settings.payments.settlement_timing.delay_days;
+
+      if (effectiveDelay !== delayDays) {
+        this.logger.warn(
+          `Connect account ${accountId} payout delay is ${effectiveDelay} days, expected ${delayDays}. Stripe may have capped the override for this account country.`,
+        );
+      }
+
+      return effectiveDelay;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown Stripe error';
+
+      this.logger.warn(
+        `Could not sync Balance Settings payout delay for ${accountId}: ${message}`,
+      );
+
+      return null;
+    }
+  }
+
+  async getVerifiedConnectPayoutDelayDays(
+    accountId: string,
+  ): Promise<number | null> {
+    const stripe = this.stripeClient.getClient();
+
+    try {
+      const settings = await stripe.balanceSettings.retrieve(
+        {},
+        { stripeAccount: accountId },
+      );
+
+      return (
+        settings.payments.settlement_timing.delay_days_override ??
+        settings.payments.settlement_timing.delay_days ??
+        null
+      );
+    } catch {
+      return null;
+    }
   }
 
   async createStripeConnectOnboardingLink(
@@ -314,14 +416,6 @@ export class CreatorBillingService {
           card_payments: { requested: true },
           transfers: { requested: true },
         },
-        settings: {
-          payouts: {
-            schedule: {
-              interval: 'daily',
-              delay_days: CREATOR_PAYOUT_DELAY_DAYS,
-            },
-          },
-        },
       });
 
       accountId = account.id;
@@ -330,8 +424,10 @@ export class CreatorBillingService {
         where: { id: profile.id },
         data: { stripeConnectAccountId: accountId },
       });
+
+      await this.syncConnectPayoutSchedule(accountId, profile.id);
     } else {
-      await this.syncConnectPayoutSchedule(accountId);
+      await this.syncConnectPayoutSchedule(accountId, profile.id);
     }
 
     const link = await stripe.accountLinks.create({

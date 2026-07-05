@@ -18,6 +18,7 @@ import { HealthModule } from './modules/health/health.module';
 import { LessonsModule } from './modules/lessons/lessons.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { AdminRiskModule } from './modules/admin-risk/admin-risk.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { PurchasesModule } from './modules/purchases/purchases.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
@@ -43,6 +44,7 @@ import { YoutubeModule } from './modules/youtube/youtube.module';
     LessonsModule,
     AccessPlansModule,
     BillingModule,
+    AdminRiskModule,
     PurchasesModule,
     SubscriptionsModule,
     PaymentsModule,

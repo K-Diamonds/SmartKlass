@@ -79,7 +79,48 @@ export class StripeWebhookService {
     };
   }
 
-  private async dispatchEvent(event: Stripe.Event): Promise<void> {
+  isReplayEnabled(): boolean {
+    return this.stripeClient.isConfigured();
+  }
+
+  async replayEvent(
+    eventId: string,
+    options?: { force?: boolean },
+  ): Promise<{ replayed: boolean; message: string; type?: string }> {
+    if (!this.stripeClient.isConfigured()) {
+      throw new BadRequestException('Stripe is not configured.');
+    }
+
+    const stripe = this.stripeClient.getClient();
+    const event = await stripe.events.retrieve(eventId);
+    const existing = await this.prisma.processedStripeEvent.findUnique({
+      where: { id: eventId },
+    });
+
+    if (existing && !options?.force) {
+      return {
+        replayed: false,
+        message: `Event ${eventId} already processed. Pass force=true to replay.`,
+        type: event.type,
+      };
+    }
+
+    await this.dispatchEvent(event);
+
+    if (!existing) {
+      await this.prisma.processedStripeEvent.create({
+        data: { id: event.id, type: event.type },
+      });
+    }
+
+    return {
+      replayed: true,
+      message: `Replayed ${event.type}.`,
+      type: event.type,
+    };
+  }
+
+  async dispatchEvent(event: Stripe.Event): Promise<void> {
     switch (event.type) {
       case 'checkout.session.completed':
         await this.handleCheckoutSessionCompleted(event.data.object);
