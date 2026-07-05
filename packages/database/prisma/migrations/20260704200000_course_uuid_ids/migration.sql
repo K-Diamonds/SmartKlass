@@ -1,0 +1,2 @@
+-- Course IDs now default to UUID at the application layer (Prisma @default(uuid())).
+-- Existing course rows keep their current string IDs; no column change required.

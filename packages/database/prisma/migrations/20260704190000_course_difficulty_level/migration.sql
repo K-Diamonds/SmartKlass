@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE `courses`
+  ADD COLUMN `difficulty_level` ENUM('BEGINNER', 'INTERMEDIATE', 'ADVANCED') NOT NULL DEFAULT 'BEGINNER';

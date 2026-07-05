@@ -1,0 +1,22 @@
+{
+  "name": "@smartklass/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared types, constants, and utilities for SmartKlass",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --max-warnings 0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

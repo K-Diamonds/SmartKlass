@@ -1,0 +1,142 @@
+@import "tailwindcss";
+
+/* SmartKlass design system — synced with Figma export (SmartKlass.zip) */
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 16px;
+  --gold: #c49a3c;
+  --dark: #0c0c0a;
+  --cream: #f6f3ee;
+
+  --background: #f6f3ee;
+  --foreground: #111110;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --muted: #eae7e0;
+  --muted-foreground: #7a766f;
+  --border: rgba(17, 17, 16, 0.14);
+  --border-subtle: rgba(17, 17, 16, 0.1);
+  --accent: #c49a3c;
+  --accent-foreground: #0c0c0a;
+  --accent-muted: rgba(196, 154, 60, 0.11);
+  --ring: rgba(196, 154, 60, 0.4);
+  --success: #059669;
+  --danger: #d4183d;
+  --gradient-start: #f6f3ee;
+  --gradient-end: #eae7e0;
+  --sidebar: #f6f3ee;
+  --navbar: rgba(12, 12, 10, 0.94);
+  --radius: 1.25rem;
+  --shadow-soft: 0 2px 18px rgba(0, 0, 0, 0.06);
+  --shadow-card: 0 2px 20px rgba(0, 0, 0, 0.07);
+  --shadow-elevated: 0 4px 28px rgba(0, 0, 0, 0.35);
+}
+
+.dark {
+  --background: #0c0c0a;
+  --foreground: #f0ede6;
+  --surface: #161614;
+  --surface-elevated: #1e1e1c;
+  --muted: #1e1e1c;
+  --muted-foreground: #8a8880;
+  --border: rgba(240, 237, 230, 0.14);
+  --border-subtle: rgba(240, 237, 230, 0.1);
+  --accent: #d4a853;
+  --accent-foreground: #0c0c0a;
+  --accent-muted: rgba(212, 168, 83, 0.15);
+  --ring: rgba(212, 168, 83, 0.4);
+  --sidebar: #0c0c0a;
+  --navbar: rgba(12, 12, 10, 0.94);
+  --shadow-soft: 0 4px 24px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 4px 28px rgba(0, 0, 0, 0.35);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-muted: var(--accent-muted);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-gold: var(--gold);
+  --color-dark: var(--dark);
+  --color-cream: var(--cream);
+  --color-sidebar: var(--sidebar);
+  --font-sans: var(--font-jakarta);
+  --font-display: var(--font-fraunces);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 16px);
+  --shadow-soft: var(--shadow-soft);
+  --shadow-card: var(--shadow-card);
+  --shadow-elevated: var(--shadow-elevated);
+}
+
+html {
+  scroll-behavior: smooth;
+  font-size: var(--font-size);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-jakarta), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.font-display {
+  font-family: var(--font-fraunces), Georgia, serif;
+  letter-spacing: -0.02em;
+}
+
+.glass-nav {
+  background: var(--navbar);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.glass-nav-light {
+  background: rgba(246, 243, 238, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.card-hover {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-card);
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

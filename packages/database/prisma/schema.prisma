@@ -1,0 +1,558 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// Enums
+// =============================================================================
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum CourseStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+enum CourseDifficultyLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum LessonStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum VideoProvider {
+  YOUTUBE
+}
+
+enum AccessPlanType {
+  FREE
+  ONE_TIME
+  SUBSCRIPTION
+}
+
+enum BillingInterval {
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+  EXPIRED
+  PAUSED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  CANCELED
+}
+
+enum PurchaseStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELED
+}
+
+enum LessonResourceType {
+  PDF
+  LINK
+  WORKSHEET
+  CODE
+  VIDEO
+  OTHER
+}
+
+enum LessonMaterialAccess {
+  INCLUDED
+  PURCHASE
+  VIDEO
+}
+
+enum NotificationType {
+  PURCHASE_CONFIRMED
+  SUBSCRIPTION_RENEWED
+  SUBSCRIPTION_CANCELED
+  NEW_SUBSCRIBER
+  COURSE_PUBLISHED
+  NEW_REVIEW
+  COMMENT_REPLY
+  ACCESS_EXPIRING
+  SYSTEM
+}
+
+// =============================================================================
+// Users & Profiles
+// =============================================================================
+
+model User {
+  id              String     @id @default(cuid())
+  email           String     @unique @db.VarChar(191)
+  passwordHash    String     @map("password_hash") @db.VarChar(255)
+  status          UserStatus @default(PENDING_VERIFICATION)
+  emailVerifiedAt DateTime?  @map("email_verified_at")
+  lastLoginAt     DateTime?  @map("last_login_at")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+  deletedAt       DateTime?  @map("deleted_at")
+
+  profile       UserProfile?
+  creatorProfile CreatorProfile?
+  purchases     UserPurchase[]
+  subscriptions UserSubscription[]
+  courseAccess  CourseAccess[]
+  payments      Payment[]
+  reviews       Review[]
+  comments      Comment[]
+  favorites     Favorite[]
+  notifications Notification[]
+
+  @@index([status])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model UserProfile {
+  id          String    @id @default(cuid())
+  userId      String    @unique @map("user_id")
+  displayName String    @map("display_name") @db.VarChar(100)
+  avatarUrl   String?   @map("avatar_url") @db.VarChar(500)
+  bio         String?   @db.Text
+  timezone    String?   @db.VarChar(50)
+  locale      String    @default("en-US") @db.VarChar(10)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model CreatorProfile {
+  id          String    @id @default(cuid())
+  userId      String    @unique @map("user_id")
+  slug        String    @unique @db.VarChar(191)
+  displayName String    @map("display_name") @db.VarChar(100)
+  headline    String?   @db.VarChar(255)
+  bio         String?   @db.Text
+  avatarUrl   String?   @map("avatar_url") @db.VarChar(500)
+  isVerified  Boolean   @default(false) @map("is_verified")
+  isActive    Boolean   @default(true) @map("is_active")
+  availableBalanceCents Int @default(0) @map("available_balance_cents")
+  withdrawnBalanceCents Int @default(0) @map("withdrawn_balance_cents")
+  stripeConnectAccountId String? @unique @map("stripe_connect_account_id") @db.VarChar(191)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courses Course[]
+
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("creator_profiles")
+}
+
+// =============================================================================
+// Catalog
+// =============================================================================
+
+model Category {
+  id          String    @id @default(cuid())
+  slug        String    @unique @db.VarChar(191)
+  name        String    @db.VarChar(100)
+  description String?   @db.Text
+  parentId    String?   @map("parent_id")
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  parent   Category?        @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[]       @relation("CategoryHierarchy")
+  courses  CourseCategory[]
+
+  @@index([parentId])
+  @@index([sortOrder])
+  @@map("categories")
+}
+
+model Course {
+  id                String       @id @default(uuid())
+  creatorProfileId  String       @map("creator_profile_id")
+  slug              String       @unique @db.VarChar(191)
+  title             String       @db.VarChar(255)
+  subtitle          String?      @db.VarChar(500)
+  description       String       @db.Text
+  thumbnailUrl      String?      @map("thumbnail_url") @db.VarChar(500)
+  trailerYoutubeId  String?      @map("trailer_youtube_id") @db.VarChar(20)
+  previewMaterialsDescription String? @map("preview_materials_description") @db.Text
+  status            CourseStatus @default(DRAFT)
+  estimatedHours    Decimal?     @map("estimated_hours") @db.Decimal(5, 1)
+  difficultyLevel   CourseDifficultyLevel @default(BEGINNER) @map("difficulty_level")
+  language          String       @default("en") @db.VarChar(10)
+  offersCertificate Boolean      @default(false) @map("offers_certificate")
+  certificatePaidAt DateTime?    @map("certificate_paid_at")
+  publishedAt       DateTime?    @map("published_at")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+  deletedAt         DateTime?    @map("deleted_at")
+
+  creatorProfile CreatorProfile   @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  modules        CourseModule[]
+  accessPlans    AccessPlan[]
+  categories     CourseCategory[]
+  purchases      UserPurchase[]
+  courseAccess   CourseAccess[]
+  reviews        Review[]
+  comments       Comment[]
+  favorites      Favorite[]
+
+  @@index([creatorProfileId])
+  @@index([status])
+  @@index([publishedAt])
+  @@index([deletedAt])
+  @@map("courses")
+}
+
+model CourseCategory {
+  id         String   @id @default(cuid())
+  courseId   String   @map("course_id")
+  categoryId String   @map("category_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, categoryId])
+  @@index([categoryId])
+  @@map("course_categories")
+}
+
+model CourseModule {
+  id          String    @id @default(cuid())
+  courseId    String    @map("course_id")
+  title       String    @db.VarChar(255)
+  description String?   @db.Text
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  course  Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons Lesson[]
+
+  @@index([courseId, sortOrder])
+  @@map("course_modules")
+}
+
+model Lesson {
+  id              String         @id @default(cuid())
+  moduleId        String         @map("module_id")
+  title           String         @db.VarChar(255)
+  description     String?        @db.Text
+  materialsDescription String?     @map("materials_description") @db.Text
+  youtubeVideoId  String?        @map("youtube_video_id") @db.VarChar(20)
+  youtubeUrl      String?        @map("youtube_url") @db.VarChar(500)
+  thumbnailUrl    String?        @map("thumbnail_url") @db.VarChar(500)
+  provider        VideoProvider? @default(YOUTUBE)
+  durationSeconds Int?           @map("duration_seconds")
+  sortOrder       Int            @default(0) @map("sort_order")
+  status          LessonStatus   @default(DRAFT)
+  isPreview       Boolean        @default(false) @map("is_preview")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  deletedAt       DateTime?      @map("deleted_at")
+
+  module    CourseModule     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  resources LessonResource[]
+  comments  Comment[]
+
+  @@index([moduleId, sortOrder])
+  @@index([status])
+  @@index([isPreview])
+  @@map("lessons")
+}
+
+model LessonResource {
+  id           String               @id @default(cuid())
+  lessonId     String               @map("lesson_id")
+  title        String               @db.VarChar(255)
+  description  String?              @db.Text
+  resourceType LessonResourceType   @default(LINK) @map("resource_type")
+  url          String               @db.VarChar(500)
+  purchaseUrl  String?              @map("purchase_url") @db.VarChar(500)
+  accessMode   LessonMaterialAccess @default(INCLUDED) @map("access_mode")
+  sortOrder    Int                  @default(0) @map("sort_order")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+  deletedAt    DateTime?          @map("deleted_at")
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId, sortOrder])
+  @@map("lesson_resources")
+}
+
+// =============================================================================
+// Monetization & Access
+// =============================================================================
+
+model AccessPlan {
+  id              String          @id @default(cuid())
+  courseId        String          @map("course_id")
+  name            String          @db.VarChar(100)
+  description     String?         @db.Text
+  planType        AccessPlanType  @map("plan_type")
+  priceCents      Int             @default(0) @map("price_cents")
+  currency        String          @default("USD") @db.VarChar(3)
+  billingInterval BillingInterval? @map("billing_interval")
+  accessDurationDays Int?         @map("access_duration_days")
+  stripePriceId   String?         @map("stripe_price_id") @db.VarChar(191)
+  isActive        Boolean         @default(true) @map("is_active")
+  sortOrder       Int             @default(0) @map("sort_order")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  deletedAt       DateTime?       @map("deleted_at")
+
+  course        Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  features      PlanFeature[]
+  purchases     UserPurchase[]
+  subscriptions UserSubscription[]
+  courseAccess  CourseAccess[]
+
+  @@index([courseId, isActive])
+  @@index([planType])
+  @@map("access_plans")
+}
+
+model PlanFeature {
+  id           String   @id @default(cuid())
+  accessPlanId String   @map("access_plan_id")
+  key          String   @db.VarChar(100)
+  label        String   @db.VarChar(255)
+  description  String?  @db.Text
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  accessPlan AccessPlan @relation(fields: [accessPlanId], references: [id], onDelete: Cascade)
+
+  @@unique([accessPlanId, key])
+  @@map("plan_features")
+}
+
+model Payment {
+  id                    String        @id @default(cuid())
+  userId                String        @map("user_id")
+  status                PaymentStatus @default(PENDING)
+  amountCents           Int           @map("amount_cents")
+  currency              String        @default("USD") @db.VarChar(3)
+  stripePaymentIntentId String?       @unique @map("stripe_payment_intent_id") @db.VarChar(191)
+  stripeChargeId        String?       @map("stripe_charge_id") @db.VarChar(191)
+  paidAt                DateTime?     @map("paid_at")
+  metadata              Json?
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purchase UserPurchase?
+
+  @@index([userId])
+  @@index([status])
+  @@index([paidAt])
+  @@map("payments")
+}
+
+model UserPurchase {
+  id           String         @id @default(cuid())
+  userId       String         @map("user_id")
+  courseId     String         @map("course_id")
+  accessPlanId String         @map("access_plan_id")
+  paymentId    String?        @unique @map("payment_id")
+  status       PurchaseStatus @default(PENDING)
+  amountCents  Int            @map("amount_cents")
+  currency     String         @default("USD") @db.VarChar(3)
+  purchasedAt  DateTime?      @map("purchased_at")
+  expiresAt    DateTime?      @map("expires_at")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  deletedAt    DateTime?      @map("deleted_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course       Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  accessPlan   AccessPlan    @relation(fields: [accessPlanId], references: [id], onDelete: Restrict)
+  payment      Payment?      @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  courseAccess CourseAccess?
+
+  @@index([userId, courseId])
+  @@index([status])
+  @@index([purchasedAt])
+  @@map("user_purchases")
+}
+
+model UserSubscription {
+  id                   String             @id @default(cuid())
+  userId               String             @map("user_id")
+  accessPlanId         String             @map("access_plan_id")
+  status               SubscriptionStatus @default(ACTIVE)
+  stripeSubscriptionId String?            @unique @map("stripe_subscription_id") @db.VarChar(191)
+  currentPeriodStart   DateTime           @map("current_period_start")
+  currentPeriodEnd     DateTime           @map("current_period_end")
+  canceledAt           DateTime?          @map("canceled_at")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+  deletedAt            DateTime?          @map("deleted_at")
+
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessPlan   AccessPlan     @relation(fields: [accessPlanId], references: [id], onDelete: Restrict)
+  courseAccess CourseAccess[]
+
+  @@index([userId, status])
+  @@index([currentPeriodEnd])
+  @@map("user_subscriptions")
+}
+
+model CourseAccess {
+  id                 String    @id @default(cuid())
+  userId             String    @map("user_id")
+  courseId           String    @map("course_id")
+  accessPlanId       String    @map("access_plan_id")
+  userPurchaseId     String?   @unique @map("user_purchase_id")
+  userSubscriptionId String?   @map("user_subscription_id")
+  startsAt           DateTime  @default(now()) @map("starts_at")
+  expiresAt          DateTime? @map("expires_at")
+  revokedAt          DateTime? @map("revoked_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course           Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  accessPlan       AccessPlan        @relation(fields: [accessPlanId], references: [id], onDelete: Restrict)
+  userPurchase     UserPurchase?     @relation(fields: [userPurchaseId], references: [id], onDelete: SetNull)
+  userSubscription UserSubscription? @relation(fields: [userSubscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([userId, courseId])
+  @@index([accessPlanId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+  @@map("course_access")
+}
+
+model ProcessedStripeEvent {
+  id        String   @id @db.VarChar(191)
+  type      String   @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([type])
+  @@map("processed_stripe_events")
+}
+
+// =============================================================================
+// Engagement
+// =============================================================================
+
+model Review {
+  id          String    @id @default(cuid())
+  userId      String    @map("user_id")
+  courseId    String    @map("course_id")
+  rating      Int
+  title       String?   @db.VarChar(255)
+  body        String?   @db.Text
+  isPublished Boolean   @default(true) @map("is_published")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([courseId, isPublished])
+  @@index([rating])
+  @@map("reviews")
+}
+
+model Comment {
+  id              String    @id @default(cuid())
+  userId          String    @map("user_id")
+  courseId        String?   @map("course_id")
+  lessonId        String?   @map("lesson_id")
+  parentCommentId String?   @map("parent_comment_id")
+  body            String    @db.Text
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course        Course?   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lesson        Lesson?   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  parentComment Comment?  @relation("CommentThread", fields: [parentCommentId], references: [id], onDelete: SetNull)
+  replies       Comment[] @relation("CommentThread")
+
+  @@index([courseId, createdAt])
+  @@index([lessonId, createdAt])
+  @@index([parentCommentId])
+  @@map("comments")
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  courseId  String   @map("course_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([courseId])
+  @@map("favorites")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  type      NotificationType
+  title     String           @db.VarChar(255)
+  body      String           @db.Text
+  data      Json?
+  readAt    DateTime?        @map("read_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+  deletedAt DateTime?        @map("deleted_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([type])
+  @@index([createdAt])
+  @@map("notifications")
+}

@@ -1,0 +1,70 @@
+{
+  "nav": {
+    "explore": "Explore",
+    "mostRecent": "Most Recent",
+    "certificates": "Certificates",
+    "searchPlaceholder": "Search…",
+    "searchSuggestionCourse": "Course",
+    "searchSuggestionCreator": "Creator",
+    "searchSuggestionCategory": "Category",
+    "signIn": "Sign in",
+    "getStarted": "Get Started",
+    "dashboard": "Dashboard",
+    "becomeCreator": "Become a creator",
+    "openCreatorStudio": "Open Creator Studio",
+    "creatorDashboard": "Creator Dashboard"
+  },
+  "discover": {
+    "eyebrow": "Discover",
+    "titleExplore": "Explore courses",
+    "titleRecent": "Most recent courses",
+    "titleCertificates": "Certificate courses",
+    "subtitleExplore": "Browse premium courses from independent creators across culinary, music, design, and more.",
+    "subtitleRecent": "Newly published courses from independent creators.",
+    "subtitleCertificates": "Courses that award a completion certificate. Creators pay a one-time $200 platform fee to enable certificates per course.",
+    "results": "{{count}} result for “{{query}}”",
+    "results_plural": "{{count}} results for “{{query}}”",
+    "noResultsTitle": "No courses found",
+    "noResultsBody": "Try a different search or filter.",
+    "titleByCreator": "Courses by {{name}}",
+    "subtitleByCreator": "{{count}} course from this creator.",
+    "subtitleByCreator_plural": "{{count}} courses from this creator.",
+    "filters": {
+      "category": "Category",
+      "language": "Language",
+      "creator": "Creator",
+      "all": "All"
+    }
+  },
+  "course": {
+    "taughtIn": "Taught in {{language}}",
+    "certificate": "Certificate",
+    "certificateIncluded": "Includes completion certificate",
+    "typeCourse": "Course"
+  },
+  "settings": {
+    "profile": {
+      "title": "Profile",
+      "subtitle": "Manage your account information",
+      "displayName": "Display name",
+      "email": "Email",
+      "bio": "Bio",
+      "bioPlaceholder": "Tell creators a bit about yourself",
+      "language": "Interface language",
+      "languageHelp": "Overrides browser and location detection. Course content language is set per course.",
+      "save": "Save changes",
+      "saved": "Profile updated",
+      "photo": "Profile photo",
+      "photoHelp": "JPG, PNG, WebP, or GIF. Max 2 MB.",
+      "photoUpload": "Upload photo",
+      "photoUploading": "Uploading…",
+      "photoRemove": "Remove",
+      "photoUploadError": "Could not upload profile photo.",
+      "photoRemoveError": "Could not remove profile photo."
+    }
+  },
+  "languages": {
+    "en": "English",
+    "es": "Spanish"
+  }
+}

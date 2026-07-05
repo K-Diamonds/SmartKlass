@@ -1,0 +1,40 @@
+{
+  "name": "smartklass",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SmartKlass — premium learning marketplace monorepo",
+  "scripts": {
+    "dev": "pnpm run --parallel \"/^dev:(web|api)$/\"",
+    "dev:web": "pnpm --filter @smartklass/web dev",
+    "dev:api": "pnpm --filter @smartklass/api start:dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm --filter @smartklass/api test",
+    "test:e2e": "pnpm --filter @smartklass/api test:e2e",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,cjs,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,cjs,json,md,yml,yaml}\"",
+    "typecheck": "pnpm -r typecheck",
+    "setup": "pnpm install && docker compose up -d && pnpm db:migrate && pnpm db:seed",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "db:generate": "pnpm --filter @smartklass/database db:generate",
+    "db:push": "pnpm --filter @smartklass/database db:push",
+    "db:migrate": "pnpm --filter @smartklass/database db:migrate",
+    "db:migrate:deploy": "pnpm --filter @smartklass/database db:migrate:deploy",
+    "db:seed": "pnpm --filter @smartklass/database db:seed",
+    "db:reset": "pnpm --filter @smartklass/database db:reset",
+    "db:studio": "pnpm --filter @smartklass/database db:studio"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "eslint": "^9.18.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.4"
+}

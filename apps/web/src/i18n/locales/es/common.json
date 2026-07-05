@@ -1,0 +1,70 @@
+{
+  "nav": {
+    "explore": "Explorar",
+    "mostRecent": "Más recientes",
+    "certificates": "Certificados",
+    "searchPlaceholder": "Buscar…",
+    "searchSuggestionCourse": "Curso",
+    "searchSuggestionCreator": "Creador",
+    "searchSuggestionCategory": "Categoría",
+    "signIn": "Iniciar sesión",
+    "getStarted": "Comenzar",
+    "dashboard": "Panel",
+    "becomeCreator": "Ser creador",
+    "openCreatorStudio": "Abrir Creator Studio",
+    "creatorDashboard": "Panel de creador"
+  },
+  "discover": {
+    "eyebrow": "Descubrir",
+    "titleExplore": "Explorar cursos",
+    "titleRecent": "Cursos más recientes",
+    "titleCertificates": "Cursos con certificado",
+    "subtitleExplore": "Explora cursos premium de creadores independientes en cocina, música, diseño y más.",
+    "subtitleRecent": "Cursos publicados recientemente por creadores independientes.",
+    "subtitleCertificates": "Cursos que otorgan un certificado de finalización. Los creadores pagan una tarifa única de $200 a la plataforma por curso.",
+    "results": "{{count}} resultado para “{{query}}”",
+    "results_plural": "{{count}} resultados para “{{query}}”",
+    "noResultsTitle": "No se encontraron cursos",
+    "noResultsBody": "Prueba otra búsqueda o filtro.",
+    "titleByCreator": "Cursos de {{name}}",
+    "subtitleByCreator": "{{count}} curso de este creador.",
+    "subtitleByCreator_plural": "{{count}} cursos de este creador.",
+    "filters": {
+      "category": "Categoría",
+      "language": "Idioma",
+      "creator": "Creador",
+      "all": "Todos"
+    }
+  },
+  "course": {
+    "taughtIn": "Impartido en {{language}}",
+    "certificate": "Certificado",
+    "certificateIncluded": "Incluye certificado de finalización",
+    "typeCourse": "Curso"
+  },
+  "settings": {
+    "profile": {
+      "title": "Perfil",
+      "subtitle": "Administra la información de tu cuenta",
+      "displayName": "Nombre para mostrar",
+      "email": "Correo electrónico",
+      "bio": "Biografía",
+      "bioPlaceholder": "Cuéntales a los creadores un poco sobre ti",
+      "language": "Idioma de la interfaz",
+      "languageHelp": "Reemplaza la detección del navegador y la ubicación. El idioma del curso se define por curso.",
+      "save": "Guardar cambios",
+      "saved": "Perfil actualizado",
+      "photo": "Foto de perfil",
+      "photoHelp": "JPG, PNG, WebP o GIF. Máx. 2 MB.",
+      "photoUpload": "Subir foto",
+      "photoUploading": "Subiendo…",
+      "photoRemove": "Eliminar",
+      "photoUploadError": "No se pudo subir la foto de perfil.",
+      "photoRemoveError": "No se pudo eliminar la foto de perfil."
+    }
+  },
+  "languages": {
+    "en": "Inglés",
+    "es": "Español"
+  }
+}
