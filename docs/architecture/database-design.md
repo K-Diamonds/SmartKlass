@@ -57,6 +57,12 @@ User ──┬── UserProfile
 | `user_subscriptions` | Recurring fulfillment source |
 | `course_access` | **Grant ledger** — links user to course + plan |
 | `processed_stripe_events` | Webhook idempotency keys |
+| `creator_transactions` | Per-charge creator ledger (gross, fees, net, 30-day hold) |
+| `refunds` | Stripe refund mirror |
+| `disputes` | Stripe dispute mirror |
+| `creator_payouts` | Stripe Connect payout mirror |
+
+`creator_profiles.available_balance_cents` is for **certificate wallet** only — not course revenue accounting.
 
 ### Engagement
 
@@ -123,6 +129,11 @@ We store external IDs for reconciliation and support:
 |--------|---------------|
 | `access_plans.stripe_price_id` | Price |
 | `payments.stripe_payment_intent_id` | PaymentIntent |
+| `payments.stripe_charge_id` | Charge |
+| `creator_transactions.stripe_charge_id` | Charge (reconciliation) |
+| `refunds.stripe_refund_id` | Refund |
+| `disputes.stripe_dispute_id` | Dispute |
+| `creator_payouts.stripe_payout_id` | Connect Payout |
 | `user_subscriptions.stripe_subscription_id` | Subscription |
 | `processed_stripe_events.id` | Event ID |
 

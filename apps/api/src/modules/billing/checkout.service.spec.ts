@@ -40,6 +40,7 @@ describe('CheckoutService', () => {
     payment: {
       create: jest.fn(),
       update: jest.fn(),
+      findUnique: jest.fn(),
     },
     userPurchase: {
       create: jest.fn(),
@@ -99,7 +100,7 @@ describe('CheckoutService', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('creates a lifetime checkout session with pending purchase records', async () => {
+  it('creates a lifetime checkout session with a 20% platform fee', async () => {
     prismaMock.accessPlan.findFirst.mockResolvedValue({
       id: 'plan_lifetime',
       courseId: 'course_1',
@@ -119,6 +120,12 @@ describe('CheckoutService', () => {
     });
     prismaMock.payment.create.mockResolvedValue({ id: 'payment_1' });
     prismaMock.userPurchase.create.mockResolvedValue({ id: 'purchase_1' });
+    prismaMock.payment.findUnique.mockResolvedValue({
+      metadata: {
+        platformFeeCents: 1580,
+        creatorEarningsCents: 6320,
+      },
+    });
     stripeMock.checkout.sessions.create.mockResolvedValue({
       id: 'cs_test_123',
       url: 'https://checkout.stripe.com/c/pay/cs_test_123',
@@ -150,12 +157,14 @@ describe('CheckoutService', () => {
     expect(sessionArgs.metadata.paymentId).toBe('payment_1');
     expect(sessionArgs.metadata.purchaseId).toBe('purchase_1');
     expect(sessionArgs.payment_intent_data.application_fee_amount).toBe(1580);
+    expect(result.platformFeeCents).toBe(1580);
+    expect(result.creatorEarningsCents).toBe(6320);
     expect(sessionArgs.payment_intent_data.transfer_data.destination).toBe(
       'acct_creator_1',
     );
   });
 
-  it('creates a subscription checkout session for monthly plans', async () => {
+  it('creates a subscription checkout session with application_fee_percent', async () => {
     prismaMock.accessPlan.findFirst.mockResolvedValue({
       id: 'plan_monthly',
       courseId: 'course_1',
@@ -190,10 +199,57 @@ describe('CheckoutService', () => {
         mode: 'subscription',
         subscription_data: expect.objectContaining({
           transfer_data: { destination: 'acct_creator_1' },
+          application_fee_percent: expect.any(Number),
         }),
       }),
     );
+    const [[sessionArgs]] = stripeMock.checkout.sessions.create.mock.calls as [
+      [
+        {
+          subscription_data: {
+            application_fee_percent: number;
+          };
+        },
+      ],
+    ];
+    expect(sessionArgs.subscription_data.application_fee_percent).toBeCloseTo(
+      33.36,
+      1,
+    );
     expect(prismaMock.payment.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects checkout when creator Stripe Connect is not completed', async () => {
+    creatorBillingMock.getConnectDestinationForCourse.mockRejectedValue(
+      new BadRequestException(
+        'This course is not available for purchase until the creator connects Stripe for payouts.',
+      ),
+    );
+    prismaMock.accessPlan.findFirst.mockResolvedValue({
+      id: 'plan_lifetime',
+      courseId: 'course_1',
+      name: 'Lifetime Access',
+      planType: AccessPlanType.ONE_TIME,
+      priceCents: 7900,
+      currency: 'USD',
+      billingInterval: null,
+      stripePriceId: 'price_lifetime',
+      course: {
+        id: 'course_1',
+        title: 'Pasta Basics',
+        deletedAt: null,
+        status: CourseStatus.PUBLISHED,
+        creatorProfileId: 'creator_profile_1',
+      },
+    });
+
+    await expect(
+      service.createCoursePlanCheckout('user_1', {
+        accessPlanId: 'plan_lifetime',
+        successUrl: 'http://localhost:3000/success',
+        cancelUrl: 'http://localhost:3000/cancel',
+      }),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('throws when the access plan does not exist', async () => {

@@ -9,6 +9,7 @@ import {
 import { PrismaService } from '../../common/database/prisma.service';
 import { BillingFulfillmentService } from './billing-fulfillment.service';
 import { CreatorBillingService } from './creator-billing.service';
+import { MarketplaceAccountingService } from './marketplace-accounting.service';
 import { StripeWebhookService } from './stripe-webhook.service';
 import { StripeClientService } from './stripe-client.service';
 
@@ -44,11 +45,22 @@ describe('StripeWebhookService', () => {
     creditEarnings: jest.fn(),
   };
 
+  const marketplaceAccountingMock = {
+    syncRefundFromStripe: jest.fn(),
+    syncDisputeFromStripe: jest.fn(),
+    closeDisputeFromStripe: jest.fn(),
+    syncPayoutFromStripe: jest.fn(),
+    syncPayoutFailedFromStripe: jest.fn(),
+  };
+
   const stripeMock = {
     webhooks: {
       constructEvent: jest.fn(),
     },
     subscriptions: {
+      retrieve: jest.fn(),
+    },
+    paymentIntents: {
       retrieve: jest.fn(),
     },
   };
@@ -68,6 +80,7 @@ describe('StripeWebhookService', () => {
         { provide: StripeClientService, useValue: stripeClientMock },
         { provide: BillingFulfillmentService, useValue: fulfillmentMock },
         { provide: CreatorBillingService, useValue: creatorBillingMock },
+        { provide: MarketplaceAccountingService, useValue: marketplaceAccountingMock },
       ],
     }).compile();
 
@@ -124,6 +137,9 @@ describe('StripeWebhookService', () => {
       currency: 'USD',
       accessDurationDays: null,
     });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue({
+      latest_charge: 'ch_test',
+    });
 
     const result = await service.handleWebhook(Buffer.from('{}'), 'sig_test');
 
@@ -134,6 +150,7 @@ describe('StripeWebhookService', () => {
         paymentId: 'payment_1',
         purchaseId: 'purchase_1',
         stripePaymentIntentId: 'pi_test',
+        stripeChargeId: 'ch_test',
       }),
     );
     expect(prismaMock.processedStripeEvent.create).toHaveBeenCalledWith({
@@ -248,6 +265,7 @@ describe('BillingFulfillmentService', () => {
       update: jest.fn(),
       create: jest.fn(),
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
     },
     courseAccess: {
       findFirst: jest.fn(),
@@ -290,6 +308,10 @@ describe('BillingFulfillmentService', () => {
     creditEarnings: jest.fn(),
   };
 
+  const marketplaceAccountingMock = {
+    recordSaleFromPaymentMetadata: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
     prismaMock.$transaction.mockImplementation(
@@ -301,7 +323,7 @@ describe('BillingFulfillmentService', () => {
       providers: [
         BillingFulfillmentService,
         { provide: PrismaService, useValue: prismaMock },
-        { provide: CreatorBillingService, useValue: creatorBillingMock },
+        { provide: MarketplaceAccountingService, useValue: marketplaceAccountingMock },
       ],
     }).compile();
 
@@ -315,17 +337,21 @@ describe('BillingFulfillmentService', () => {
       courseAccess: null,
     });
     txMock.payment.update.mockResolvedValue({ id: 'payment_1' });
+    txMock.payment.findUnique.mockResolvedValue({
+      metadata: {
+        platformFeeCents: 1580,
+        creatorEarningsCents: 6320,
+      },
+    });
     txMock.userPurchase.update.mockResolvedValue({
       id: 'purchase_1',
       status: PurchaseStatus.COMPLETED,
     });
     txMock.courseAccess.findFirst.mockResolvedValue(null);
     txMock.courseAccess.create.mockResolvedValue({ id: 'access_1' });
-    txMock.course.findUnique.mockResolvedValue({ title: 'Pasta Basics' });
-    prismaMock.course.findFirst.mockResolvedValue({ creatorProfileId: 'creator_1' });
-    prismaMock.payment.findUnique.mockResolvedValue({
-      metadata: { creatorEarningsCents: 6320 },
-    });
+    txMock.course.findUnique
+      .mockResolvedValueOnce({ title: 'Pasta Basics' })
+      .mockResolvedValueOnce({ creatorProfileId: 'creator_1' });
     txMock.notification.findFirst.mockResolvedValue(null);
 
     await fulfillment.fulfillLifetimePurchase({

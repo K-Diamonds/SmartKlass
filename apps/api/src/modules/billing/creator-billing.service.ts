@@ -11,6 +11,7 @@ import {
 } from '@smartklass/shared';
 import { PaymentStatus } from '@smartklass/database';
 import { PrismaService } from '../../common/database/prisma.service';
+import { MarketplaceAccountingService } from './marketplace-accounting.service';
 import { StripeClientService } from './stripe-client.service';
 import {
   StripeConnectLinkDto,
@@ -23,6 +24,7 @@ export class CreatorBillingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly stripeClient: StripeClientService,
+    private readonly marketplaceAccounting: MarketplaceAccountingService,
   ) {}
 
   async getWalletForUser(userId: string) {
@@ -46,11 +48,16 @@ export class CreatorBillingService {
   ): Promise<CreatorPayoutSummaryDto> {
     const profile = await this.getCreatorProfileOrThrow(userId);
     const currency = 'USD';
+    const ledger = await this.marketplaceAccounting.getLedgerBalances(
+      profile.id,
+      currency,
+    );
 
     const baseSummary: CreatorPayoutSummaryDto = {
       stripeConnected: false,
-      availableBalanceCents: 0,
-      pendingBalanceCents: 0,
+      availableBalanceCents: ledger.availableCents,
+      pendingBalanceCents: ledger.pendingCents,
+      ledgerPaidOutCents: ledger.paidOutCents,
       nextPayoutDate: null,
       platformFeePercent: PLATFORM_FEE_PERCENT,
       platformFeeMinimumCents: PLATFORM_FEE_MIN_CENTS,
@@ -108,8 +115,9 @@ export class CreatorBillingService {
 
       return {
         stripeConnected: true,
-        availableBalanceCents,
-        pendingBalanceCents,
+        availableBalanceCents: ledger.availableCents,
+        pendingBalanceCents: ledger.pendingCents,
+        ledgerPaidOutCents: ledger.paidOutCents,
         nextPayoutDate,
         platformFeePercent: PLATFORM_FEE_PERCENT,
         platformFeeMinimumCents: PLATFORM_FEE_MIN_CENTS,

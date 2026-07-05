@@ -61,3 +61,20 @@ export function getInvoicePaymentIntentId(
     ? paymentIntent
     : (paymentIntent?.id ?? null);
 }
+
+export async function resolveStripeChargeId(
+  stripe: Stripe,
+  paymentIntentId?: string | null,
+): Promise<string | null> {
+  if (!paymentIntentId) {
+    return null;
+  }
+
+  const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, {
+    expand: ['latest_charge'],
+  });
+
+  const charge = paymentIntent.latest_charge;
+
+  return typeof charge === 'string' ? charge : (charge?.id ?? null);
+}

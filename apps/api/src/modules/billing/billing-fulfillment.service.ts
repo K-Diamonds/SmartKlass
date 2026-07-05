@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
   AccessPlanType,
+  CreatorTransactionType,
   NotificationType,
   PaymentStatus,
   Prisma,
@@ -8,6 +9,8 @@ import {
   SubscriptionStatus,
 } from '@smartklass/database';
 import { PrismaService } from '../../common/database/prisma.service';
+import { mergeJsonMetadata } from './merge-metadata';
+import { MarketplaceAccountingService } from './marketplace-accounting.service';
 import Stripe from 'stripe';
 
 type FulfillLifetimeInput = {
@@ -18,6 +21,7 @@ type FulfillLifetimeInput = {
   purchaseId?: string;
   stripePaymentIntentId?: string | null;
   stripeCheckoutSessionId?: string;
+  stripeChargeId?: string | null;
   amountCents: number;
   currency: string;
   accessDurationDays?: number | null;
@@ -36,13 +40,18 @@ type FulfillSubscriptionInput = {
   currency?: string;
   stripePaymentIntentId?: string | null;
   stripeInvoiceId?: string;
+  stripeChargeId?: string | null;
+  paymentMetadata?: Prisma.JsonValue | null;
 };
 
 @Injectable()
 export class BillingFulfillmentService {
   private readonly logger = new Logger(BillingFulfillmentService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly marketplaceAccounting: MarketplaceAccountingService,
+  ) {}
 
   async fulfillLifetimePurchase(input: FulfillLifetimeInput) {
     return this.prisma.$transaction(async (tx) => {
@@ -83,17 +92,25 @@ export class BillingFulfillmentService {
       );
 
       let paymentId = input.paymentId;
+      let paymentMetadata: Prisma.JsonValue | null = null;
 
       if (paymentId) {
+        const existingPayment = await tx.payment.findUnique({
+          where: { id: paymentId },
+          select: { metadata: true },
+        });
+        paymentMetadata = existingPayment?.metadata ?? null;
+
         await tx.payment.update({
           where: { id: paymentId },
           data: {
             status: PaymentStatus.SUCCEEDED,
             stripePaymentIntentId: input.stripePaymentIntentId ?? undefined,
+            stripeChargeId: input.stripeChargeId ?? undefined,
             paidAt: purchasedAt,
-            metadata: {
-              checkoutSessionId: input.stripeCheckoutSessionId,
-            },
+            metadata: mergeJsonMetadata(paymentMetadata, {
+              checkoutSessionId: input.stripeCheckoutSessionId ?? null,
+            }),
           },
         });
       } else {
@@ -104,6 +121,7 @@ export class BillingFulfillmentService {
             amountCents: input.amountCents,
             currency: input.currency,
             stripePaymentIntentId: input.stripePaymentIntentId ?? undefined,
+            stripeChargeId: input.stripeChargeId ?? undefined,
             paidAt: purchasedAt,
             metadata: {
               checkoutSessionId: input.stripeCheckoutSessionId,
@@ -111,6 +129,7 @@ export class BillingFulfillmentService {
           },
         });
         paymentId = payment.id;
+        paymentMetadata = payment.metadata;
       }
 
       let purchase;
@@ -156,6 +175,28 @@ export class BillingFulfillmentService {
         courseId: input.courseId,
         accessPlanId: input.accessPlanId,
       });
+
+      const course = await tx.course.findUnique({
+        where: { id: input.courseId },
+        select: { creatorProfileId: true },
+      });
+
+      if (course && paymentId) {
+        await this.marketplaceAccounting.recordSaleFromPaymentMetadata(tx, {
+          paymentId,
+          creatorProfileId: course.creatorProfileId,
+          courseId: input.courseId,
+          accessPlanId: input.accessPlanId,
+          userId: input.userId,
+          type: CreatorTransactionType.ONE_TIME_PURCHASE,
+          grossAmountCents: input.amountCents,
+          currency: input.currency,
+          metadata: paymentMetadata,
+          paidAt: purchasedAt,
+          stripePaymentIntentId: input.stripePaymentIntentId,
+          stripeChargeId: input.stripeChargeId,
+        });
+      }
 
       this.logger.log(
         `Granted lifetime access for user ${input.userId} on course ${input.courseId}`,
@@ -224,20 +265,45 @@ export class BillingFulfillmentService {
         });
 
         if (!existingPayment) {
-          await tx.payment.create({
+          const payment = await tx.payment.create({
             data: {
               userId: input.userId,
               status: PaymentStatus.SUCCEEDED,
               amountCents: input.amountCents,
               currency: input.currency,
               stripePaymentIntentId: input.stripePaymentIntentId,
+              stripeChargeId: input.stripeChargeId ?? undefined,
               paidAt: new Date(),
-              metadata: {
-                stripeInvoiceId: input.stripeInvoiceId,
+              metadata: mergeJsonMetadata(input.paymentMetadata, {
+                stripeInvoiceId: input.stripeInvoiceId ?? null,
                 stripeSubscriptionId: input.stripeSubscriptionId,
-              },
+                accessPlanId: input.accessPlanId,
+                courseId: input.courseId,
+              }),
             },
           });
+
+          const course = await tx.course.findUnique({
+            where: { id: input.courseId },
+            select: { creatorProfileId: true },
+          });
+
+          if (course) {
+            await this.marketplaceAccounting.recordSaleFromPaymentMetadata(tx, {
+              paymentId: payment.id,
+              creatorProfileId: course.creatorProfileId,
+              courseId: input.courseId,
+              accessPlanId: input.accessPlanId,
+              userId: input.userId,
+              type: CreatorTransactionType.SUBSCRIPTION_CHARGE,
+              grossAmountCents: input.amountCents,
+              currency: input.currency,
+              metadata: payment.metadata,
+              stripePaymentIntentId: input.stripePaymentIntentId,
+              stripeChargeId: input.stripeChargeId,
+              stripeInvoiceId: input.stripeInvoiceId,
+            });
+          }
         }
       }
 

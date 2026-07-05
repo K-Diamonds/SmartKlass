@@ -17,6 +17,7 @@ import {
   connectApplicationFeePercent,
 } from '@smartklass/shared';
 import { PrismaService } from '../../common/database/prisma.service';
+import { mergeJsonMetadata } from './merge-metadata';
 import {
   CertificateCheckoutDto,
   CoursePlanCheckoutDto,
@@ -111,7 +112,9 @@ export class CheckoutService {
       courseId: accessPlan.courseId,
       planType: accessPlan.planType,
       platformFeeCents: String(feeBreakdown.platformFeeCents),
+      creatorNetCents: String(feeBreakdown.creatorEarningsCents),
       creatorEarningsCents: String(feeBreakdown.creatorEarningsCents),
+      feeRuleLabel: feeBreakdown.feeRuleLabel,
     };
 
     let paymentId: string | undefined;
@@ -129,7 +132,9 @@ export class CheckoutService {
               accessPlanId: accessPlan.id,
               courseId: accessPlan.courseId,
               platformFeeCents: feeBreakdown.platformFeeCents,
+              creatorNetCents: feeBreakdown.creatorEarningsCents,
               creatorEarningsCents: feeBreakdown.creatorEarningsCents,
+              feeRuleLabel: feeBreakdown.feeRuleLabel,
             },
           },
         });
@@ -201,15 +206,25 @@ export class CheckoutService {
     }
 
     if (paymentId) {
+      const existingPayment = await this.prisma.payment.findUnique({
+        where: { id: paymentId },
+        select: { metadata: true },
+      });
+
       await this.prisma.payment.update({
         where: { id: paymentId },
         data: {
-          metadata: {
+          metadata: mergeJsonMetadata(existingPayment?.metadata, {
             accessPlanId: accessPlan.id,
             courseId: accessPlan.courseId,
             checkoutSessionId: session.id,
-            purchaseId,
-          },
+            purchaseId: purchaseId ?? null,
+            platformFeeCents: feeBreakdown.platformFeeCents,
+            creatorNetCents: feeBreakdown.creatorEarningsCents,
+            creatorEarningsCents: feeBreakdown.creatorEarningsCents,
+            feeRuleLabel: feeBreakdown.feeRuleLabel,
+            stripeConnectAccountId: destinationAccountId,
+          }),
         },
       });
     }

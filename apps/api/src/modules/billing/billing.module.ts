@@ -9,6 +9,7 @@ import {
 import { BillingService } from './billing.service';
 import { CheckoutService } from './checkout.service';
 import { CreatorBillingService } from './creator-billing.service';
+import { MarketplaceAccountingService } from './marketplace-accounting.service';
 import { StripeClientService } from './stripe-client.service';
 import { StripeWebhookService } from './stripe-webhook.service';
 
@@ -18,6 +19,7 @@ import { StripeWebhookService } from './stripe-webhook.service';
   providers: [
     StripeClientService,
     CreatorBillingService,
+    MarketplaceAccountingService,
     BillingFulfillmentService,
     CheckoutService,
     StripeWebhookService,
@@ -26,6 +28,7 @@ import { StripeWebhookService } from './stripe-webhook.service';
   exports: [
     StripeClientService,
     CreatorBillingService,
+    MarketplaceAccountingService,
     BillingFulfillmentService,
     CheckoutService,
     StripeWebhookService,

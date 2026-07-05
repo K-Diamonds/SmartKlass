@@ -71,11 +71,9 @@ Checkout modes:
 
 ## Future: Stripe Connect
 
-Creator payouts will likely use **Stripe Connect Express**:
+**Implemented in v1.** See [ADR-005: Stripe Connect marketplace payments](./ADR-005-stripe-connect-marketplace-payments.md) and [Stripe Connect architecture](../architecture/stripe-connect.md).
 
-- Does not reverse this ADR — extends it
-- Platform fee taken at charge or transfer time
-- Requires separate ADR for payout timing and tax forms
+Creator payouts use **Stripe Connect Express** with destination charges and a 30-day payout delay.
 
 ## Environment
 

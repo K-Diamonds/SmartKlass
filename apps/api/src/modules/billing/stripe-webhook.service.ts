@@ -4,12 +4,14 @@ import { AccessPlanType, NotificationType } from '@smartklass/database';
 import { PrismaService } from '../../common/database/prisma.service';
 import { BillingFulfillmentService } from './billing-fulfillment.service';
 import { CreatorBillingService } from './creator-billing.service';
+import { MarketplaceAccountingService } from './marketplace-accounting.service';
 import { StripeWebhookResponseDto } from './dto/billing.dto';
 import { StripeClientService } from './stripe-client.service';
 import {
   getInvoicePaymentIntentId,
   getSubscriptionIdFromInvoice,
   getSubscriptionPeriod,
+  resolveStripeChargeId,
 } from './stripe-utils';
 
 @Injectable()
@@ -21,6 +23,7 @@ export class StripeWebhookService {
     private readonly stripeClient: StripeClientService,
     private readonly fulfillment: BillingFulfillmentService,
     private readonly creatorBilling: CreatorBillingService,
+    private readonly marketplaceAccounting: MarketplaceAccountingService,
   ) {}
 
   async handleWebhook(
@@ -94,6 +97,44 @@ export class StripeWebhookService {
       case 'invoice.payment_failed':
         await this.handleInvoicePaymentFailed(event.data.object);
         break;
+      case 'charge.refunded':
+        await this.handleChargeRefunded(event.data.object);
+        break;
+      case 'refund.created':
+      case 'refund.updated':
+        await this.marketplaceAccounting.syncRefundFromStripe(event.data.object);
+        break;
+      case 'charge.dispute.created':
+      case 'charge.dispute.updated':
+        await this.marketplaceAccounting.syncDisputeFromStripe(event.data.object);
+        break;
+      case 'charge.dispute.closed':
+        await this.marketplaceAccounting.closeDisputeFromStripe(event.data.object);
+        break;
+      case 'payout.paid':
+        if (event.account) {
+          await this.marketplaceAccounting.syncPayoutFromStripe(
+            event.data.object,
+            event.account,
+          );
+        }
+        break;
+      case 'payout.failed':
+        if (event.account) {
+          await this.marketplaceAccounting.syncPayoutFailedFromStripe(
+            event.data.object,
+            event.account,
+          );
+        }
+        break;
+      case 'payout.updated':
+        if (event.account) {
+          await this.marketplaceAccounting.syncPayoutFromStripe(
+            event.data.object,
+            event.account,
+          );
+        }
+        break;
       default:
         this.logger.debug(`Ignoring unsupported Stripe event: ${event.type}`);
     }
@@ -156,17 +197,26 @@ export class StripeWebhookService {
       return;
     }
 
+    const stripe = this.stripeClient.getClient();
+
     if (planType === AccessPlanType.ONE_TIME) {
+      const stripePaymentIntentId =
+        typeof session.payment_intent === 'string'
+          ? session.payment_intent
+          : session.payment_intent?.id;
+      const stripeChargeId = await resolveStripeChargeId(
+        stripe,
+        stripePaymentIntentId,
+      );
+
       await this.fulfillment.fulfillLifetimePurchase({
         userId,
         courseId,
         accessPlanId,
         paymentId: metadata.paymentId,
         purchaseId: metadata.purchaseId,
-        stripePaymentIntentId:
-          typeof session.payment_intent === 'string'
-            ? session.payment_intent
-            : session.payment_intent?.id,
+        stripePaymentIntentId,
+        stripeChargeId,
         stripeCheckoutSessionId: session.id,
         amountCents: accessPlan.priceCents,
         currency: accessPlan.currency,
@@ -176,7 +226,6 @@ export class StripeWebhookService {
     }
 
     if (planType === AccessPlanType.SUBSCRIPTION && session.subscription) {
-      const stripe = this.stripeClient.getClient();
       const subscriptionId =
         typeof session.subscription === 'string'
           ? session.subscription
@@ -260,6 +309,11 @@ export class StripeWebhookService {
     }
 
     const period = getSubscriptionPeriod(subscription);
+    const stripePaymentIntentId = getInvoicePaymentIntentId(invoice);
+    const stripeChargeId = await resolveStripeChargeId(
+      stripe,
+      stripePaymentIntentId,
+    );
 
     await this.fulfillment.fulfillSubscription({
       userId: metadata.userId,
@@ -274,9 +328,19 @@ export class StripeWebhookService {
         : null,
       amountCents: invoice.amount_paid ?? undefined,
       currency: invoice.currency?.toUpperCase(),
-      stripePaymentIntentId: getInvoicePaymentIntentId(invoice),
+      stripePaymentIntentId,
+      stripeChargeId,
       stripeInvoiceId: invoice.id,
+      paymentMetadata: metadata,
     });
+  }
+
+  private async handleChargeRefunded(charge: Stripe.Charge): Promise<void> {
+    const refunds = charge.refunds?.data ?? [];
+
+    for (const refund of refunds) {
+      await this.marketplaceAccounting.syncRefundFromStripe(refund);
+    }
   }
 
   private async handleInvoicePaymentFailed(

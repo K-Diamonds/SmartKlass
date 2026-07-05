@@ -64,6 +64,7 @@ export class CreatorPayoutSummaryDto {
   stripeConnected!: boolean;
   availableBalanceCents!: number;
   pendingBalanceCents!: number;
+  ledgerPaidOutCents!: number;
   nextPayoutDate!: string | null;
   platformFeePercent!: number;
   platformFeeMinimumCents!: number;

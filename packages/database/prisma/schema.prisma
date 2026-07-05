@@ -79,6 +79,45 @@ enum PurchaseStatus {
   CANCELED
 }
 
+enum CreatorTransactionType {
+  ONE_TIME_PURCHASE
+  SUBSCRIPTION_CHARGE
+}
+
+enum CreatorTransactionStatus {
+  PENDING
+  AVAILABLE
+  PAID_OUT
+  REFUNDED
+  DISPUTED
+  REVERSED
+}
+
+enum RefundStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELED
+}
+
+enum DisputeStatus {
+  WARNING_NEEDS_RESPONSE
+  WARNING_UNDER_REVIEW
+  WARNING_CLOSED
+  NEEDS_RESPONSE
+  UNDER_REVIEW
+  WON
+  LOST
+}
+
+enum CreatorPayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  CANCELED
+}
+
 enum LessonResourceType {
   PDF
   LINK
@@ -173,6 +212,8 @@ model CreatorProfile {
 
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   courses Course[]
+  creatorTransactions CreatorTransaction[]
+  creatorPayouts      CreatorPayout[]
 
   @@index([isActive])
   @@index([deletedAt])
@@ -233,6 +274,7 @@ model Course {
   reviews        Review[]
   comments       Comment[]
   favorites      Favorite[]
+  creatorTransactions CreatorTransaction[]
 
   @@index([creatorProfileId])
   @@index([status])
@@ -383,6 +425,9 @@ model Payment {
 
   user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   purchase UserPurchase?
+  creatorTransaction CreatorTransaction?
+  refunds            Refund[]
+  disputes           Dispute[]
 
   @@index([userId])
   @@index([status])
@@ -473,6 +518,113 @@ model ProcessedStripeEvent {
 
   @@index([type])
   @@map("processed_stripe_events")
+}
+
+// =============================================================================
+// Marketplace accounting (Stripe Connect reconciliation)
+// =============================================================================
+
+model CreatorTransaction {
+  id                        String                   @id @default(cuid())
+  creatorProfileId          String                   @map("creator_profile_id")
+  paymentId                 String?                  @unique @map("payment_id")
+  courseId                  String                   @map("course_id")
+  accessPlanId              String?                  @map("access_plan_id")
+  userId                    String                   @map("user_id")
+  type                      CreatorTransactionType
+  status                    CreatorTransactionStatus @default(PENDING)
+  grossAmountCents          Int                      @map("gross_amount_cents")
+  platformFeeCents          Int                      @map("platform_fee_cents")
+  stripeFeeCents            Int?                     @map("stripe_fee_cents")
+  creatorNetCents           Int                      @map("creator_net_cents")
+  currency                  String                   @default("USD") @db.VarChar(3)
+  stripePaymentIntentId     String?                  @unique @map("stripe_payment_intent_id") @db.VarChar(191)
+  stripeChargeId            String?                  @unique @map("stripe_charge_id") @db.VarChar(191)
+  stripeBalanceTransactionId String?                 @map("stripe_balance_transaction_id") @db.VarChar(191)
+  stripeInvoiceId           String?                  @map("stripe_invoice_id") @db.VarChar(191)
+  availableAt               DateTime?                @map("available_at")
+  paidOutAt                 DateTime?                @map("paid_out_at")
+  metadata                  Json?
+  createdAt                 DateTime                 @default(now()) @map("created_at")
+  updatedAt                 DateTime                 @updatedAt @map("updated_at")
+
+  creatorProfile CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  payment        Payment?       @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  course         Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  refunds        Refund[]
+  disputes       Dispute[]
+
+  @@index([creatorProfileId, createdAt])
+  @@index([creatorProfileId, status])
+  @@index([courseId])
+  @@index([status])
+  @@index([availableAt])
+  @@map("creator_transactions")
+}
+
+model Refund {
+  id                   String       @id @default(cuid())
+  paymentId            String?      @map("payment_id")
+  creatorTransactionId String?      @map("creator_transaction_id")
+  stripeRefundId       String       @unique @map("stripe_refund_id") @db.VarChar(191)
+  stripeChargeId       String?      @map("stripe_charge_id") @db.VarChar(191)
+  amountCents          Int          @map("amount_cents")
+  currency             String       @default("USD") @db.VarChar(3)
+  status               RefundStatus @default(PENDING)
+  reason               String?      @db.VarChar(255)
+  createdAt            DateTime     @default(now()) @map("created_at")
+  updatedAt            DateTime     @updatedAt @map("updated_at")
+
+  creatorTransaction CreatorTransaction? @relation(fields: [creatorTransactionId], references: [id], onDelete: SetNull)
+  payment            Payment?            @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([paymentId])
+  @@index([creatorTransactionId])
+  @@index([stripeChargeId])
+  @@map("refunds")
+}
+
+model Dispute {
+  id                   String        @id @default(cuid())
+  paymentId            String?       @map("payment_id")
+  creatorTransactionId String?       @map("creator_transaction_id")
+  stripeDisputeId      String        @unique @map("stripe_dispute_id") @db.VarChar(191)
+  stripeChargeId       String        @map("stripe_charge_id") @db.VarChar(191)
+  amountCents          Int           @map("amount_cents")
+  currency             String        @default("USD") @db.VarChar(3)
+  status               DisputeStatus @default(NEEDS_RESPONSE)
+  reason               String?       @db.VarChar(255)
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+  closedAt             DateTime?     @map("closed_at")
+
+  creatorTransaction CreatorTransaction? @relation(fields: [creatorTransactionId], references: [id], onDelete: SetNull)
+  payment            Payment?            @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([paymentId])
+  @@index([stripeChargeId])
+  @@map("disputes")
+}
+
+model CreatorPayout {
+  id               String              @id @default(cuid())
+  creatorProfileId String              @map("creator_profile_id")
+  stripePayoutId   String              @unique @map("stripe_payout_id") @db.VarChar(191)
+  amountCents      Int                 @map("amount_cents")
+  currency         String              @default("USD") @db.VarChar(3)
+  status           CreatorPayoutStatus @default(PENDING)
+  scheduledFor     DateTime?           @map("scheduled_for")
+  paidAt           DateTime?           @map("paid_at")
+  failureReason    String?             @map("failure_reason") @db.VarChar(500)
+  metadata         Json?
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+
+  creatorProfile CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+
+  @@index([creatorProfileId, createdAt])
+  @@index([status])
+  @@map("creator_payouts")
 }
 
 // =============================================================================
