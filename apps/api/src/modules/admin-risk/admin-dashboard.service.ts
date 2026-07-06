@@ -194,4 +194,71 @@ export class AdminDashboardService {
       },
     });
   }
+
+  async listRefunds(limit = 50) {
+    return this.prisma.refund.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      include: {
+        creatorTransaction: {
+          select: {
+            id: true,
+            creatorProfile: { select: { id: true, displayName: true, slug: true } },
+            course: { select: { id: true, title: true } },
+          },
+        },
+        payment: {
+          select: { id: true, user: { select: { email: true } } },
+        },
+      },
+    });
+  }
+
+  async listDisputes(limit = 50) {
+    return this.prisma.dispute.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      include: {
+        creatorTransaction: {
+          select: {
+            id: true,
+            creatorProfile: { select: { id: true, displayName: true, slug: true } },
+            course: { select: { id: true, title: true } },
+          },
+        },
+      },
+    });
+  }
+
+  async listPayouts(limit = 50, status?: string) {
+    return this.prisma.creatorPayout.findMany({
+      where: status ? { status: status as never } : undefined,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      include: {
+        creatorProfile: { select: { id: true, displayName: true, slug: true } },
+      },
+    });
+  }
+
+  async listCreatorTransactions(limit = 50) {
+    return this.prisma.creatorTransaction.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      include: {
+        creatorProfile: { select: { id: true, displayName: true, slug: true } },
+        course: { select: { id: true, title: true } },
+        payment: { select: { id: true, status: true } },
+      },
+    });
+  }
+
+  async listCreators(limit = 50) {
+    return this.prisma.creatorProfile.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      include: { riskProfile: true },
+    });
+  }
 }

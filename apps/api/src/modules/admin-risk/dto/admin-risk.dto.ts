@@ -59,7 +59,7 @@ export class FlagTransactionDto extends AdminReasonDto {
   flagReason!: string;
 }
 
-export class AddInternalNoteDto {
+export class AddInternalNoteDto extends AdminReasonDto {
   @IsString()
   @MaxLength(5000)
   note!: string;

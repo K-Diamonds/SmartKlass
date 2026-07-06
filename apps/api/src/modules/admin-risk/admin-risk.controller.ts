@@ -84,6 +84,34 @@ export class AdminRiskController {
     return this.dashboard.getRecentPayments(limit ? Number(limit) : 50);
   }
 
+  @Get('refunds')
+  listRefunds(@Query('limit') limit?: string) {
+    return this.dashboard.listRefunds(limit ? Number(limit) : 50);
+  }
+
+  @Get('disputes')
+  listDisputes(@Query('limit') limit?: string) {
+    return this.dashboard.listDisputes(limit ? Number(limit) : 50);
+  }
+
+  @Get('payouts')
+  listPayouts(
+    @Query('limit') limit?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.dashboard.listPayouts(limit ? Number(limit) : 50, status);
+  }
+
+  @Get('transactions')
+  listTransactions(@Query('limit') limit?: string) {
+    return this.dashboard.listCreatorTransactions(limit ? Number(limit) : 50);
+  }
+
+  @Get('creators')
+  listCreators(@Query('limit') limit?: string) {
+    return this.dashboard.listCreators(limit ? Number(limit) : 50);
+  }
+
   @Get('creators/:creatorProfileId/risk')
   getCreatorRisk(@Param('creatorProfileId') creatorProfileId: string) {
     return this.creatorRisk.getRiskProfile(creatorProfileId);
@@ -169,6 +197,7 @@ export class AdminRiskController {
   ) {
     return this.creatorRisk.addInternalNote(creatorProfileId, dto.note, {
       actorUserId: actorId(user),
+      reason: dto.reason,
       ipAddress: clientIp(request),
     });
   }
