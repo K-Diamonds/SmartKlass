@@ -320,7 +320,10 @@ describe('CheckoutService', () => {
       alreadySubscribed: false,
     });
 
-    const result = await service.ownerSelfSubscribe('owner_user', 'plan_monthly');
+    const result = await service.ownerSelfSubscribe(
+      'owner_user',
+      'plan_monthly',
+    );
 
     expect(result).toEqual({
       courseId: 'course_1',

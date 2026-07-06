@@ -31,9 +31,8 @@ export default () => ({
       const [identifier, role] = entry.split(':').map((part) => part.trim());
       return { identifier, role: role?.toUpperCase() };
     })
-    .filter(
-      (entry): entry is { identifier: string; role: string } =>
-        Boolean(entry.identifier && entry.role),
+    .filter((entry): entry is { identifier: string; role: string } =>
+      Boolean(entry.identifier && entry.role),
     ),
   adminRateLimit: {
     maxRequests: parseInt(process.env.ADMIN_RATE_LIMIT_MAX ?? '120', 10),

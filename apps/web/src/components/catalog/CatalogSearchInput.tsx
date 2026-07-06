@@ -12,8 +12,9 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
-import type { CatalogSort } from '@/lib/mock-data';
-import { getCatalogSearchSuggestions } from '@/lib/catalog-search';
+import type { CatalogSort } from '@/lib/catalog/catalog-utils';
+import { buildCatalogSearchSuggestions } from '@/lib/catalog/search-index';
+import { useCatalogSearchIndex } from '@/hooks/useCatalogSearchIndex';
 import { cn } from '@/lib/utils';
 
 type CatalogSearchInputProps = {
@@ -43,6 +44,7 @@ export function CatalogSearchInput({
   const [query, setQuery] = useState(initialQuery);
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const catalogIndex = useCatalogSearchIndex();
 
   const isDark = variant === 'dark';
 
@@ -62,10 +64,10 @@ export function CatalogSearchInput({
 
   const suggestions = useMemo(
     () =>
-      getCatalogSearchSuggestions(query, {
+      buildCatalogSearchSuggestions(query, catalogIndex, {
         searchParams: new URLSearchParams(searchParamsKey),
       }),
-    [activeSort, query, searchParamsKey],
+    [catalogIndex, query, searchParamsKey],
   );
 
   const trimmedQuery = query.trim();

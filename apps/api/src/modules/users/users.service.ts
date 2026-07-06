@@ -161,7 +161,9 @@ export class UsersService {
     }
 
     if (course.status === 'PUBLISHED') {
-      return lessons.find((lesson) => lesson.status === 'PUBLISHED')?.id ?? null;
+      return (
+        lessons.find((lesson) => lesson.status === 'PUBLISHED')?.id ?? null
+      );
     }
 
     return lessons[0]?.id ?? null;
@@ -232,20 +234,27 @@ export class UsersService {
       throw new BadRequestException('Profile photo must be 2 MB or smaller.');
     }
 
-    const extension = this.resolveAvatarExtension(file.mimetype, file.originalname);
+    const extension = this.resolveAvatarExtension(
+      file.mimetype,
+      file.originalname,
+    );
     const uploadsDir = join(process.cwd(), 'uploads', 'avatars');
     await mkdir(uploadsDir, { recursive: true });
 
     const filename = `${user.id}-${Date.now()}${extension}`;
     await writeFile(join(uploadsDir, filename), file.buffer);
 
-    const apiUrl = this.configService.get<string>('apiUrl') ?? 'http://localhost:4000';
+    const apiUrl =
+      this.configService.get<string>('apiUrl') ?? 'http://localhost:4000';
     const avatarUrl = `${apiUrl.replace(/\/$/, '')}/uploads/avatars/${filename}`;
 
     return this.updateMe(user, { avatarUrl });
   }
 
-  private resolveAvatarExtension(mimetype: string, originalname: string): string {
+  private resolveAvatarExtension(
+    mimetype: string,
+    originalname: string,
+  ): string {
     const fromName = extname(originalname).toLowerCase();
     if (['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(fromName)) {
       return fromName === '.jpg' ? '.jpeg' : fromName;

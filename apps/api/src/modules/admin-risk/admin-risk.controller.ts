@@ -276,11 +276,15 @@ export class AdminRiskController {
     @Body() dto: MarkCreatorTrustedDto,
     @Req() request: Request,
   ) {
-    return this.creatorRisk.markTrusted(creatorProfileId, {
-      actorUserId: actorId(user),
-      reason: dto.reason,
-      ipAddress: clientIp(request),
-    }, dto.payoutDelayDays);
+    return this.creatorRisk.markTrusted(
+      creatorProfileId,
+      {
+        actorUserId: actorId(user),
+        reason: dto.reason,
+        ipAddress: clientIp(request),
+      },
+      dto.payoutDelayDays,
+    );
   }
 
   @Post('creators/:creatorProfileId/high-risk')
@@ -291,11 +295,15 @@ export class AdminRiskController {
     @Body() dto: MarkCreatorHighRiskDto,
     @Req() request: Request,
   ) {
-    return this.creatorRisk.markHighRisk(creatorProfileId, {
-      actorUserId: actorId(user),
-      reason: dto.reason,
-      ipAddress: clientIp(request),
-    }, dto.payoutDelayDays);
+    return this.creatorRisk.markHighRisk(
+      creatorProfileId,
+      {
+        actorUserId: actorId(user),
+        reason: dto.reason,
+        ipAddress: clientIp(request),
+      },
+      dto.payoutDelayDays,
+    );
   }
 
   @Post('creators/:creatorProfileId/extend-payout-hold')

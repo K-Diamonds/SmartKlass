@@ -97,7 +97,7 @@ export function LessonPlayer({
   const activeLesson =
     allLessons.find((lesson) => lesson.id === activeLessonId) ?? firstLesson;
 
-  const isLessonLocked = (lesson: LessonItem) => !subscriberAccess;
+  const isLessonLocked = () => !subscriberAccess;
 
   const handleLessonSelect = (lesson: LessonItem) => {
     if (isLessonLocked(lesson)) {

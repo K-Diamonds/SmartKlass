@@ -7,7 +7,7 @@ import { CoursePreviewVideo } from '@/components/course/CoursePreviewVideo';
 import { CoursePricingPlans } from '@/components/course/CoursePricingPlans';
 import { hasPreviewMaterialsDescription } from '@/components/course/PreviewMaterialsList';
 import type { ModuleItem } from '@/components/player/LessonPlayer';
-import type { MockCourse } from '@/lib/mock-data';
+import type { CourseDisplay } from '@/lib/catalog/display-types';
 import { formatCourseDurationHours } from '@/lib/studio/course-difficulty';
 import { discoverCreatorUrl } from '@/lib/discover';
 import { CourseThumbnailImage } from '@/components/course/CourseThumbnailImage';
@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 type PreviewTab = 'visitor' | 'subscriber';
 
 type CourseCreatorPreviewProps = {
-  course: MockCourse;
+  course: CourseDisplay;
   modules: ModuleItem[];
   studioPlans?: StudioAccessPlan[];
 };

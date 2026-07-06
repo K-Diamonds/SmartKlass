@@ -1,6 +1,20 @@
-import { Body, Controller, Get, Headers, Param, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
-import { Public, CurrentUser, CreatorGuard, CreatorProfileId } from '../../common/auth';
+import {
+  Public,
+  CurrentUser,
+  CreatorGuard,
+  CreatorProfileId,
+} from '../../common/auth';
 import type { AuthenticatedUser } from '../../common/auth/interfaces/authenticated-user.interface';
 import { Request } from 'express';
 import { IdParamDto } from '../../common/dto/pagination.dto';

@@ -68,6 +68,14 @@ export async function applyCourseSnapshot(
       },
       data: { deletedAt: now },
     });
+  } else {
+    await tx.lesson.updateMany({
+      where: {
+        module: { courseId },
+        deletedAt: null,
+      },
+      data: { deletedAt: now },
+    });
   }
 
   if (resourceIds.length > 0) {
@@ -76,6 +84,14 @@ export async function applyCourseSnapshot(
         lesson: { module: { courseId } },
         deletedAt: null,
         id: { notIn: resourceIds },
+      },
+      data: { deletedAt: now },
+    });
+  } else {
+    await tx.lessonResource.updateMany({
+      where: {
+        lesson: { module: { courseId } },
+        deletedAt: null,
       },
       data: { deletedAt: now },
     });
@@ -99,7 +115,11 @@ export async function applyCourseSnapshot(
   }
 }
 
-async function upsertModule(tx: Tx, courseId: string, mod: CourseSnapshotModule) {
+async function upsertModule(
+  tx: Tx,
+  courseId: string,
+  mod: CourseSnapshotModule,
+) {
   await tx.courseModule.upsert({
     where: { id: mod.id },
     create: {
@@ -122,7 +142,11 @@ async function upsertModule(tx: Tx, courseId: string, mod: CourseSnapshotModule)
   }
 }
 
-async function upsertLesson(tx: Tx, moduleId: string, lesson: CourseSnapshotLesson) {
+async function upsertLesson(
+  tx: Tx,
+  moduleId: string,
+  lesson: CourseSnapshotLesson,
+) {
   await tx.lesson.upsert({
     where: { id: lesson.id },
     create: {

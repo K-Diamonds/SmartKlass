@@ -1,6 +1,9 @@
 import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
 import { NextFunction, Request, Response } from 'express';
-import { getCorrelationId, getRequestId } from '../observability/correlation.context';
+import {
+  getCorrelationId,
+  getRequestId,
+} from '../observability/correlation.context';
 import { MetricsService } from '../observability/metrics.service';
 
 @Injectable()

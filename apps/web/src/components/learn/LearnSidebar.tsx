@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import type { CourseWatchData } from '@/lib/api/watch';
 import { coursePublicUrl } from '@/lib/courses';
-import { getCourseBySlug } from '@/lib/mock-data';
 import { cn, formatDuration } from '@/lib/utils';
 
 export type SidebarLesson = {
@@ -85,7 +84,7 @@ export function LearnSidebar({
           Unlock the course to browse all modules and track your progress.
         </p>
         <Link
-          href={coursePublicUrl(getCourseBySlug(courseSlug)?.id ?? courseSlug)}
+          href={coursePublicUrl(courseId ?? courseSlug)}
           className="mt-4 inline-block text-sm font-medium text-accent hover:underline"
         >
           View access plans →

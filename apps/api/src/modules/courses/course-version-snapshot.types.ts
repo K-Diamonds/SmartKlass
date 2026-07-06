@@ -78,15 +78,17 @@ export function diffCourseSnapshots(
 ): VersionDiffItem[] {
   const items: VersionDiffItem[] = [];
 
-  for (const key of Object.keys(after.course) as Array<keyof CourseSnapshotData['course']>) {
+  for (const key of Object.keys(after.course) as Array<
+    keyof CourseSnapshotData['course']
+  >) {
     const prev = before.course[key];
     const next = after.course[key];
     if (JSON.stringify(prev) !== JSON.stringify(next)) {
       items.push({
         path: `course.${key}`,
         change: 'modified',
-        before: prev as string | number | boolean | null,
-        after: next as string | number | boolean | null,
+        before: prev,
+        after: next,
       });
     }
   }
@@ -109,7 +111,11 @@ export function diffCourseSnapshots(
 
   for (const [id, mod] of beforeModules) {
     if (!afterModules.has(id)) {
-      items.push({ path: `modules.${id}`, change: 'removed', before: mod.title });
+      items.push({
+        path: `modules.${id}`,
+        change: 'removed',
+        before: mod.title,
+      });
     }
   }
 
@@ -118,7 +124,11 @@ export function diffCourseSnapshots(
 
   for (const [id, plan] of afterPlans) {
     if (!beforePlans.has(id)) {
-      items.push({ path: `accessPlans.${id}`, change: 'added', after: plan.name });
+      items.push({
+        path: `accessPlans.${id}`,
+        change: 'added',
+        after: plan.name,
+      });
     } else if (beforePlans.get(id)!.priceCents !== plan.priceCents) {
       items.push({
         path: `accessPlans.${id}.priceCents`,
@@ -131,7 +141,11 @@ export function diffCourseSnapshots(
 
   for (const [id, plan] of beforePlans) {
     if (!afterPlans.has(id)) {
-      items.push({ path: `accessPlans.${id}`, change: 'removed', before: plan.name });
+      items.push({
+        path: `accessPlans.${id}`,
+        change: 'removed',
+        before: plan.name,
+      });
     }
   }
 

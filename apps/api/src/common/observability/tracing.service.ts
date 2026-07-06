@@ -6,15 +6,15 @@ export type Span = {
   name: string;
   traceId: string;
   spanId: string;
-  end: (status?: SpanStatus, attributes?: Record<string, string | number>) => void;
+  end: (
+    status?: SpanStatus,
+    attributes?: Record<string, string | number>,
+  ) => void;
 };
 
 @Injectable()
 export class TracingService {
-  startSpan(
-    name: string,
-    attributes?: Record<string, string | number>,
-  ): Span {
+  startSpan(name: string, attributes?: Record<string, string | number>): Span {
     const traceId = this.randomId();
     const spanId = this.randomId();
     const startedAt = Date.now();

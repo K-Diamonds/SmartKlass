@@ -37,11 +37,7 @@ export class AdminPermissionGuard implements CanActivate {
     const actorId = user.impersonatorId ?? user.id;
     const actorEmail = user.impersonatorEmail ?? user.email;
 
-    const isLegacyStaff = isStaffUser(
-      this.configService,
-      actorId,
-      actorEmail,
-    );
+    const isLegacyStaff = isStaffUser(this.configService, actorId, actorEmail);
     const hasRbacRole = await this.rbac.isAdminUser(actorId);
 
     if (!isLegacyStaff && !hasRbacRole) {

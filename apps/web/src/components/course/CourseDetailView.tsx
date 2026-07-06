@@ -6,15 +6,13 @@ import { hasPreviewMaterialsDescription } from '@/components/course/PreviewMater
 import type { ModuleItem } from '@/components/player/LessonPlayer';
 import { CourseCreatorPreview } from '@/components/course/CourseCreatorPreview';
 import { CourseThumbnailImage } from '@/components/course/CourseThumbnailImage';
-import type { MockCourse } from '@/lib/mock-data';
+import type { CourseDisplay } from '@/lib/catalog/display-types';
 import { discoverCreatorUrl } from '@/lib/discover';
 import { formatCourseDurationHours } from '@/lib/studio/course-difficulty';
 import type { StudioAccessPlan } from '@/lib/studio/types';
 
-import type { StudioAccessPlan } from '@/lib/studio/types';
-
 type CourseDetailViewProps = {
-  course: MockCourse;
+  course: CourseDisplay;
   modules?: ModuleItem[];
   isCreatorPreview?: boolean;
   studioPlans?: StudioAccessPlan[];

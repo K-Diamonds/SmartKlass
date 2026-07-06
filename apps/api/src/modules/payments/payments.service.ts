@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { AuthenticatedUser } from '../../common/auth/interfaces/authenticated-user.interface';
 import { PaginatedResultDto } from '../../common/dto/pagination.dto';
 import { PrismaService } from '../../common/database/prisma.service';

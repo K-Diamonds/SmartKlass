@@ -29,11 +29,11 @@ import { PublicNavActions } from '@/components/layout/PublicNavActions';
 import { getCreatorStudioLabel, useAuthSession } from '@/hooks/useAuthSession';
 import { coursePublicUrl } from '@/lib/courses';
 import { discoverCreatorUrl } from '@/lib/discover';
-import { compareTrendingCourses } from '@/lib/mock-data';
+import { compareTrendingCourses } from '@/lib/catalog/catalog-utils';
 import { listPublishedCourses } from '@/lib/api/courses';
 import { listCreatorDirectory } from '@/lib/api/creators';
 import { summaryToDisplayCourse } from '@/lib/catalog/course-display';
-import type { MockCourse, MockCreator } from '@/lib/mock-data';
+import type { CourseDisplay, CreatorDisplay } from '@/lib/catalog/display-types';
 import { formatCoursePrice } from '@/lib/utils';
 
 const CATEGORIES = ['All', 'Culinary', 'Music', 'Design', 'Business'];
@@ -168,7 +168,7 @@ function HomeNav({
 function CarouselCourseCard({
   course,
 }: {
-  course: MockCourse;
+  course: CourseDisplay;
 }) {
   return (
     <Link
@@ -251,8 +251,8 @@ export function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState('All');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [catalogCourses, setCatalogCourses] = useState<MockCourse[]>([]);
-  const [topCreators, setTopCreators] = useState<MockCreator[]>([]);
+  const [catalogCourses, setCatalogCourses] = useState<CourseDisplay[]>([]);
+  const [topCreators, setTopCreators] = useState<CreatorDisplay[]>([]);
   const { isCreator, creatorCourseCount } = useAuthSession();
 
   const creatorCtaLabel = getCreatorStudioLabel(

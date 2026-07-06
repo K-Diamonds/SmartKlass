@@ -54,19 +54,26 @@ export class StripeWebhookService {
         let event: Stripe.Event;
 
         try {
-          event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+          event = stripe.webhooks.constructEvent(
+            rawBody,
+            signature,
+            webhookSecret,
+          );
         } catch (error) {
           const message =
-            error instanceof Error ? error.message : 'Invalid webhook signature.';
+            error instanceof Error
+              ? error.message
+              : 'Invalid webhook signature.';
           this.metrics.increment('stripe_webhook_failures_total', {
             reason: 'signature',
           });
           throw new BadRequestException(message);
         }
 
-        const alreadyProcessed = await this.prisma.processedStripeEvent.findUnique({
-          where: { id: event.id },
-        });
+        const alreadyProcessed =
+          await this.prisma.processedStripeEvent.findUnique({
+            where: { id: event.id },
+          });
 
         if (alreadyProcessed) {
           return {
@@ -165,14 +172,20 @@ export class StripeWebhookService {
         break;
       case 'refund.created':
       case 'refund.updated':
-        await this.marketplaceAccounting.syncRefundFromStripe(event.data.object);
+        await this.marketplaceAccounting.syncRefundFromStripe(
+          event.data.object,
+        );
         break;
       case 'charge.dispute.created':
       case 'charge.dispute.updated':
-        await this.marketplaceAccounting.syncDisputeFromStripe(event.data.object);
+        await this.marketplaceAccounting.syncDisputeFromStripe(
+          event.data.object,
+        );
         break;
       case 'charge.dispute.closed':
-        await this.marketplaceAccounting.closeDisputeFromStripe(event.data.object);
+        await this.marketplaceAccounting.closeDisputeFromStripe(
+          event.data.object,
+        );
         break;
       case 'payout.paid':
         if (event.account) {

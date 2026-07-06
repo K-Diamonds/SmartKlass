@@ -1,6 +1,6 @@
 import type { CourseDetail } from '@/lib/api/courses';
 import { difficultyLabelFromApi } from '@/lib/studio/course-difficulty';
-import type { CourseDifficulty, LessonStatus, StudioCourse } from './types';
+import type { LessonStatus, StudioCourse } from './types';
 
 export type CreatorCourseStudio = CourseDetail & {
   certificatePaidAt: string | null;

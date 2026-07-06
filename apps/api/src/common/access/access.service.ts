@@ -504,10 +504,10 @@ export class AccessService {
                 access.source === AccessGrantSource.SUBSCRIPTION_WEEKLY
                   ? BillingInterval.WEEKLY
                   : access.source === AccessGrantSource.SUBSCRIPTION_MONTHLY
-                  ? BillingInterval.MONTHLY
-                  : access.source === AccessGrantSource.SUBSCRIPTION_YEARLY
-                    ? BillingInterval.YEARLY
-                    : null,
+                    ? BillingInterval.MONTHLY
+                    : access.source === AccessGrantSource.SUBSCRIPTION_YEARLY
+                      ? BillingInterval.YEARLY
+                      : null,
             }
           : null,
       expiresAt: access.expiresAt?.toISOString() ?? null,

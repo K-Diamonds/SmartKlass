@@ -103,18 +103,18 @@ export function CourseBuilderClient({ course: initialCourse }: CourseBuilderClie
   };
 
   const handleAddLesson = async (moduleId: string, values: LessonFormValues) => {
-    const module = modules.find((item) => item.id === moduleId);
-    if (!module) {
+    const targetModule = modules.find((item) => item.id === moduleId);
+    if (!targetModule) {
       return;
     }
 
     setIsAddingLesson(true);
     setLessonAddError(null);
 
-    const draftLesson = createStudioLesson(moduleId, module.lessons.length, values);
+    const draftLesson = createStudioLesson(moduleId, targetModule.lessons.length, values);
 
     try {
-      const persistedModule = await ensureModulePersisted(course.id, module);
+      const persistedModule = await ensureModulePersisted(course.id, targetModule);
       const persistedLesson = await persistNewLessonToApi({
         ...draftLesson,
         moduleId: persistedModule.id,

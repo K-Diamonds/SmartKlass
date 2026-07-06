@@ -1,5 +1,5 @@
 import type { CourseDetail } from '@/lib/api/courses';
-import type { MockCourse } from '@/lib/mock-data';
+import type { CourseDisplay } from '@/lib/catalog/display-types';
 
 export type CourseSummary = {
   id: string;
@@ -17,7 +17,7 @@ export type CourseSummary = {
   };
 };
 
-const LEVEL_MAP: Record<CourseSummary['difficultyLevel'], MockCourse['level']> = {
+const LEVEL_MAP: Record<CourseSummary['difficultyLevel'], CourseDisplay['level']> = {
   BEGINNER: 'Beginner',
   INTERMEDIATE: 'Intermediate',
   ADVANCED: 'Advanced',
@@ -29,7 +29,7 @@ const PLACEHOLDER_THUMB =
 export function summaryToDisplayCourse(
   course: CourseSummary,
   options?: { priceFromCents?: number; category?: string },
-): MockCourse {
+): CourseDisplay {
   return {
     id: course.id,
     slug: course.slug,
@@ -68,7 +68,7 @@ export function summaryToDisplayCourse(
 export function detailToDisplayCourse(
   course: CourseDetail,
   options?: { priceFromCents?: number; category?: string },
-): MockCourse {
+): CourseDisplay {
   return {
     ...summaryToDisplayCourse(course, options),
     description: course.description,

@@ -282,7 +282,7 @@ export function AdminCreatorRiskPage() {
           before={'before' in modal ? modal.before : undefined}
           after={'after' in modal ? modal.after : undefined}
           requireReason={
-            'requireReason' in modal ? modal.requireReason !== false : true
+            'requireReason' in modal ? modal.requireReason : true
           }
           loading={actionLoading}
           extraFields={

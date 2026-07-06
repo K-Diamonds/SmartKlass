@@ -59,7 +59,9 @@ export class MetricsService {
       const p95 = sorted[p95Index] ?? 0;
       lines.push(`# TYPE ${name} summary`);
       lines.push(`${name}_count${labelStr} ${sorted.length}`);
-      lines.push(`${name}${labelStr}{quantile="0.95"} ${p95}`);
+      lines.push(
+        `${name}${this.formatLabels({ ...labels, quantile: '0.95' })} ${p95}`,
+      );
     }
 
     return `${lines.join('\n')}\n`;

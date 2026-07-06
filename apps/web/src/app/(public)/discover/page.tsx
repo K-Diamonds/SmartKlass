@@ -8,13 +8,13 @@ import { DiscoverFilters } from '@/components/catalog/DiscoverFilters';
 import { listPublishedCourses } from '@/lib/api/courses';
 import { listCreatorDirectory } from '@/lib/api/creators';
 import { summaryToDisplayCourse } from '@/lib/catalog/course-display';
-import type { MockCourse } from '@/lib/mock-data';
-import type { CatalogSort } from '@/lib/mock-data';
+import type { CourseDisplay } from '@/lib/catalog/display-types';
+import type { CatalogSort } from '@/lib/catalog/catalog-utils';
 
 function DiscoverContent() {
   const { t } = useTranslation();
   const searchParams = useSearchParams();
-  const [apiCourses, setApiCourses] = useState<MockCourse[]>([]);
+  const [apiCourses, setApiCourses] = useState<CourseDisplay[]>([]);
   const [creatorNames, setCreatorNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);

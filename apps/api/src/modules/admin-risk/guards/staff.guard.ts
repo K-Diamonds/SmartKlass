@@ -25,8 +25,7 @@ export class StaffGuard implements CanActivate {
     const actorEmail = (user.impersonatorEmail ?? user.email).toLowerCase();
     const staffUserIds =
       this.configService.get<string[]>('staff.userIds') ?? [];
-    const staffEmails =
-      this.configService.get<string[]>('staff.emails') ?? [];
+    const staffEmails = this.configService.get<string[]>('staff.emails') ?? [];
 
     const isStaff =
       staffUserIds.includes(actorId) || staffEmails.includes(actorEmail);
@@ -47,7 +46,6 @@ export function isStaffUser(
   const staffUserIds = configService.get<string[]>('staff.userIds') ?? [];
   const staffEmails = configService.get<string[]>('staff.emails') ?? [];
   return (
-    staffUserIds.includes(userId) ||
-    staffEmails.includes(email.toLowerCase())
+    staffUserIds.includes(userId) || staffEmails.includes(email.toLowerCase())
   );
 }

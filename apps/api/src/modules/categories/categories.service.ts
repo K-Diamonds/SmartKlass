@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { CourseStatus, Prisma } from '@smartklass/database';
+import { CourseStatus } from '@smartklass/database';
 import { PrismaService } from '../../common/database/prisma.service';
 import { CategoryDetailDto, CategoryDto } from './dto/category.dto';
 

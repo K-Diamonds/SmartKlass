@@ -8,7 +8,7 @@ import { useAuthSession } from '@/hooks/useAuthSession';
 import { formatAdminDate } from './admin-utils';
 
 export function AdminTopBar() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '/admin';
   const { isAuthenticated } = useAuthSession();
   const [now, setNow] = useState(() => new Date());
 

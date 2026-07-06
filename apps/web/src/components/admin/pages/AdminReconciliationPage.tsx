@@ -126,7 +126,7 @@ export function AdminReconciliationPage() {
         confirmLabel="Start reconciliation"
         riskImpact="Read-only Stripe API calls; results stored in ReconciliationReport."
         loading={actionLoading}
-        onConfirm={async (reason) => {
+        onConfirm={async () => {
           setActionLoading(true);
           try {
             await runReconciliation(

@@ -188,20 +188,21 @@ export class BillingFulfillmentService {
       let creatorTransaction = null;
 
       if (course && paymentId) {
-        creatorTransaction = await this.marketplaceAccounting.recordSaleFromPaymentMetadata(tx, {
-          paymentId,
-          creatorProfileId: course.creatorProfileId,
-          courseId: input.courseId,
-          accessPlanId: input.accessPlanId,
-          userId: input.userId,
-          type: CreatorTransactionType.ONE_TIME_PURCHASE,
-          grossAmountCents: input.amountCents,
-          currency: input.currency,
-          metadata: paymentMetadata,
-          paidAt: purchasedAt,
-          stripePaymentIntentId: input.stripePaymentIntentId,
-          stripeChargeId: input.stripeChargeId,
-        });
+        creatorTransaction =
+          await this.marketplaceAccounting.recordSaleFromPaymentMetadata(tx, {
+            paymentId,
+            creatorProfileId: course.creatorProfileId,
+            courseId: input.courseId,
+            accessPlanId: input.accessPlanId,
+            userId: input.userId,
+            type: CreatorTransactionType.ONE_TIME_PURCHASE,
+            grossAmountCents: input.amountCents,
+            currency: input.currency,
+            metadata: paymentMetadata,
+            paidAt: purchasedAt,
+            stripePaymentIntentId: input.stripePaymentIntentId,
+            stripeChargeId: input.stripeChargeId,
+          });
       }
 
       await this.emitPaymentFlowEvents(tx, {
@@ -815,7 +816,11 @@ export class BillingFulfillmentService {
     },
   ) {
     const correlationId = getCorrelationId();
-    const aggregateId = input.paymentId ?? input.purchaseId ?? input.subscriptionId ?? input.userId;
+    const aggregateId =
+      input.paymentId ??
+      input.purchaseId ??
+      input.subscriptionId ??
+      input.userId;
 
     await this.outbox.appendMany(tx, [
       {

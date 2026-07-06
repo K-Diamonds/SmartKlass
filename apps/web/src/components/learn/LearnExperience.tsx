@@ -138,11 +138,9 @@ export function LearnExperience({
     });
   }, [courseSlug, lessonId, courseIdHint]);
 
-  /* eslint-disable react-hooks/set-state-in-effect -- loads watch API data when route params change */
   useEffect(() => {
     void loadExperience();
   }, [loadExperience]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (state.status === 'loading') {
     return <LearnLoadingSkeleton />;

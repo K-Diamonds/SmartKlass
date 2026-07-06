@@ -71,7 +71,8 @@ export class CreatorRiskService {
     context: AdminActorContext,
     action: string,
   ) {
-    const before = await this.payoutPolicy.getOrCreateRiskProfile(creatorProfileId);
+    const before =
+      await this.payoutPolicy.getOrCreateRiskProfile(creatorProfileId);
     const after = await this.prisma.creatorRiskProfile.update({
       where: { creatorProfileId },
       data,
@@ -127,7 +128,8 @@ export class CreatorRiskService {
     payoutDelayDays?: number,
   ) {
     const delay =
-      payoutDelayDays && TRUSTED_PAYOUT_DELAY_OPTIONS.includes(payoutDelayDays as 7 | 14)
+      payoutDelayDays &&
+      TRUSTED_PAYOUT_DELAY_OPTIONS.includes(payoutDelayDays as 7 | 14)
         ? payoutDelayDays
         : defaultPayoutDelayForTrustLevel('TRUSTED')!;
 
@@ -171,9 +173,8 @@ export class CreatorRiskService {
     additionalDays: number,
     context: AdminActorContext,
   ) {
-    const profile = await this.payoutPolicy.getOrCreateRiskProfile(
-      creatorProfileId,
-    );
+    const profile =
+      await this.payoutPolicy.getOrCreateRiskProfile(creatorProfileId);
     const newDelay = profile.payoutDelayDays + additionalDays;
 
     const updated = await this.updateRiskProfile(
@@ -344,9 +345,8 @@ export class CreatorRiskService {
     note: string,
     context: AdminActorContext,
   ) {
-    const profile = await this.payoutPolicy.getOrCreateRiskProfile(
-      creatorProfileId,
-    );
+    const profile =
+      await this.payoutPolicy.getOrCreateRiskProfile(creatorProfileId);
     const mergedNote = profile.notes
       ? `${profile.notes}\n\n[${new Date().toISOString()}] ${note}`
       : `[${new Date().toISOString()}] ${note}`;
@@ -383,8 +383,7 @@ export class CreatorRiskService {
         evidenceSubmittedAt: input.markSubmitted
           ? new Date()
           : dispute.evidenceSubmittedAt,
-        assignedAdminUserId:
-          input.assignedAdminUserId ?? context.actorUserId,
+        assignedAdminUserId: input.assignedAdminUserId ?? context.actorUserId,
       },
     });
 
@@ -416,7 +415,9 @@ export class CreatorRiskService {
   ) {
     const resolved = resolvePayoutDelayDays({ trustLevel, payoutDelayDays });
     if (resolved == null) {
-      throw new BadRequestException('Suspended creators cannot receive payouts.');
+      throw new BadRequestException(
+        'Suspended creators cannot receive payouts.',
+      );
     }
     return resolved;
   }

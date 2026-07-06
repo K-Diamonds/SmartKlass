@@ -1,10 +1,8 @@
 import { coursePublicUrl } from '@/lib/courses';
 import { discoverCreatorUrl } from '@/lib/discover';
-import {
-  mockCategories,
-  mockCourses,
-  mockCreators,
-} from '@/lib/mock-data';
+import type { Category } from '@/lib/api/categories';
+import type { CourseSummary } from '@/lib/api/courses';
+import type { CreatorDirectoryItem } from '@/lib/api/creators';
 
 export type CatalogSearchSuggestion = {
   id: string;
@@ -14,12 +12,19 @@ export type CatalogSearchSuggestion = {
   type: 'course' | 'creator' | 'category';
 };
 
+export type CatalogSearchIndex = {
+  courses: CourseSummary[];
+  creators: CreatorDirectoryItem[];
+  categories: Category[];
+};
+
 function matchesQuery(values: string[], query: string) {
   return values.some((value) => value.toLowerCase().includes(query));
 }
 
-export function getCatalogSearchSuggestions(
+export function buildCatalogSearchSuggestions(
   query: string,
+  index: CatalogSearchIndex,
   options?: {
     searchParams?: URLSearchParams;
     limit?: number;
@@ -35,16 +40,14 @@ export function getCatalogSearchSuggestions(
 
   const suggestions: CatalogSearchSuggestion[] = [];
 
-  for (const course of mockCourses) {
+  for (const course of index.courses) {
     if (
       matchesQuery(
         [
           course.title,
-          course.subtitle,
-          course.description,
-          course.category,
+          course.subtitle ?? '',
           course.creator.displayName,
-          course.creator.handle,
+          course.creator.slug,
         ],
         normalized,
       )
@@ -59,36 +62,29 @@ export function getCatalogSearchSuggestions(
     }
   }
 
-  for (const creator of mockCreators) {
-    if (
-      matchesQuery(
-        [creator.displayName, creator.handle, creator.headline],
-        normalized,
-      )
-    ) {
+  for (const creator of index.creators) {
+    if (matchesQuery([creator.displayName, creator.slug], normalized)) {
       suggestions.push({
-        id: `creator-${creator.handle}`,
+        id: `creator-${creator.slug}`,
         label: creator.displayName,
-        sublabel: creator.headline,
-        href: discoverCreatorUrl(creator.handle),
+        sublabel: '',
+        href: discoverCreatorUrl(creator.slug),
         type: 'creator',
       });
     }
   }
 
-  for (const category of mockCategories) {
-    if (category === 'All') {
-      continue;
-    }
-
-    if (category.toLowerCase().includes(normalized)) {
+  for (const category of index.categories) {
+    if (
+      matchesQuery([category.name, category.slug], normalized)
+    ) {
       const params = new URLSearchParams(searchParams.toString());
-      params.set('category', category);
+      params.set('category', category.name);
       params.delete('q');
       const qs = params.toString();
       suggestions.push({
-        id: `category-${category}`,
-        label: category,
+        id: `category-${category.slug}`,
+        label: category.name,
         sublabel: '',
         href: `/discover${qs ? `?${qs}` : ''}`,
         type: 'category',

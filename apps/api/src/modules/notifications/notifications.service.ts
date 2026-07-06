@@ -1,9 +1,5 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Notification, Prisma } from '@smartklass/database';
-import { PaginatedResultDto } from '../../common/dto/pagination.dto';
 import { AuthenticatedUser } from '../../common/auth/interfaces/authenticated-user.interface';
 import { PrismaService } from '../../common/database/prisma.service';
 import {
@@ -46,7 +42,9 @@ export class NotificationsService {
     ]);
 
     return {
-      items: notifications.map((notification) => this.toNotificationDto(notification)),
+      items: notifications.map((notification) =>
+        this.toNotificationDto(notification),
+      ),
       meta: {
         page,
         limit,
@@ -85,7 +83,9 @@ export class NotificationsService {
     return this.toNotificationDto(updated);
   }
 
-  async markAllRead(user: AuthenticatedUser): Promise<{ updatedCount: number }> {
+  async markAllRead(
+    user: AuthenticatedUser,
+  ): Promise<{ updatedCount: number }> {
     const result = await this.prisma.notification.updateMany({
       where: {
         userId: user.id,
@@ -119,6 +119,6 @@ export class NotificationsService {
       return null;
     }
 
-    return value as Record<string, unknown>;
+    return value;
   }
 }

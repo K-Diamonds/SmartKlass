@@ -69,7 +69,11 @@ export class WebhookReplayService {
   async replayEvent(
     eventId: string,
     actorUserId: string,
-    options?: { force?: boolean; reason?: string | null; ipAddress?: string | null },
+    options?: {
+      force?: boolean;
+      reason?: string | null;
+      ipAddress?: string | null;
+    },
   ) {
     if (!this.stripeWebhook.isReplayEnabled()) {
       throw new BadRequestException('Stripe is not configured for replay.');

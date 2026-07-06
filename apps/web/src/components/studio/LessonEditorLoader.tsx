@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { LessonEditorClient } from '@/components/studio/LessonEditorClient';
-import { getStudioLesson } from '@/lib/studio/mock-data';
 import { loadStudioCourseWithFallback } from '@/lib/studio/load-studio-course';
 import type { StudioLesson } from '@/lib/studio/types';
 
@@ -26,19 +25,6 @@ export function LessonEditorLoader({ courseId, lessonId }: LessonEditorLoaderPro
     let cancelled = false;
 
     async function loadLesson() {
-      const mockResult = getStudioLesson(courseId, lessonId);
-      if (mockResult) {
-        if (!cancelled) {
-          setData({
-            courseId: mockResult.course.id,
-            courseTitle: mockResult.course.title,
-            moduleTitle: mockResult.module.title,
-            lesson: mockResult.lesson,
-          });
-        }
-        return;
-      }
-
       const course = await loadStudioCourseWithFallback(courseId);
       if (cancelled) {
         return;

@@ -9,10 +9,7 @@ type TransactionClient = Prisma.TransactionClient;
 export class OutboxService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async append(
-    tx: TransactionClient,
-    event: DomainEvent,
-  ): Promise<void> {
+  async append(tx: TransactionClient, event: DomainEvent): Promise<void> {
     await tx.outboxEvent.create({
       data: {
         eventType: event.eventType,
@@ -43,7 +40,9 @@ export class OutboxService {
   async getFailedCount(): Promise<number> {
     return this.prisma.outboxEvent.count({
       where: {
-        status: { in: [OutboxEventStatus.FAILED, OutboxEventStatus.DEAD_LETTER] },
+        status: {
+          in: [OutboxEventStatus.FAILED, OutboxEventStatus.DEAD_LETTER],
+        },
       },
     });
   }

@@ -1,8 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  AdminAuditTargetType,
-  Prisma,
-} from '@smartklass/database';
+import { AdminAuditTargetType, Prisma } from '@smartklass/database';
 import { PrismaService } from '../../common/database/prisma.service';
 
 export type AuditLogInput = {

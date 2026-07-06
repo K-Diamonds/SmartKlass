@@ -32,14 +32,14 @@ export class CreatorPayoutPolicyService {
   async resolveDelayDays(creatorProfileId: string): Promise<number | null> {
     const profile = await this.getOrCreateRiskProfile(creatorProfileId);
     return resolvePayoutDelayDays({
-      trustLevel: profile.trustLevel as CreatorTrustLevel,
+      trustLevel: profile.trustLevel,
       payoutDelayDays: profile.payoutDelayDays,
     });
   }
 
   async canReceivePayouts(creatorProfileId: string): Promise<boolean> {
     const profile = await this.getOrCreateRiskProfile(creatorProfileId);
-    return canCreatorReceivePayouts(profile.trustLevel as CreatorTrustLevel);
+    return canCreatorReceivePayouts(profile.trustLevel);
   }
 
   async refreshRiskMetrics(creatorProfileId: string) {
@@ -63,10 +63,8 @@ export class CreatorPayoutPolicyService {
     ]);
 
     const transactionCount = sales._count;
-    const refundRate =
-      transactionCount > 0 ? refunds / transactionCount : 0;
-    const disputeRate =
-      transactionCount > 0 ? disputes / transactionCount : 0;
+    const refundRate = transactionCount > 0 ? refunds / transactionCount : 0;
+    const disputeRate = transactionCount > 0 ? disputes / transactionCount : 0;
 
     return this.prisma.creatorRiskProfile.upsert({
       where: { creatorProfileId },

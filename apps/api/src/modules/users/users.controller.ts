@@ -31,7 +31,9 @@ export class UsersController {
   }
 
   @Get('me/library')
-  getMyLibrary(@CurrentUser() user: AuthenticatedUser): Promise<UserLibraryDto> {
+  getMyLibrary(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<UserLibraryDto> {
     return this.usersService.getMyLibrary(user);
   }
 

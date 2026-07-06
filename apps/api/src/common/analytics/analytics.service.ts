@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PaymentStatus, Prisma } from '@smartklass/database';
+import { PaymentStatus } from '@smartklass/database';
 import { PrismaService } from '../database/prisma.service';
 
 @Injectable()
@@ -37,7 +37,7 @@ export class AnalyticsService {
         activeGrants: grants,
         grossMerchandiseCents: gmv._sum.amountCents ?? 0,
         platformRevenueCents: fees._sum.platformFeeCents ?? 0,
-        metadata: input as Prisma.InputJsonValue,
+        metadata: input,
       },
       update: {
         succeededPayments: payments,
@@ -45,7 +45,7 @@ export class AnalyticsService {
         activeGrants: grants,
         grossMerchandiseCents: gmv._sum.amountCents ?? 0,
         platformRevenueCents: fees._sum.platformFeeCents ?? 0,
-        metadata: input as Prisma.InputJsonValue,
+        metadata: input,
       },
     });
   }

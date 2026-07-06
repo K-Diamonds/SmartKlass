@@ -44,14 +44,14 @@ export class JobRunnerService {
         data: {
           status: JobRunStatus.COMPLETED,
           completedAt: new Date(),
-          metadata: (metadata ?? undefined) as Prisma.InputJsonValue | undefined,
+          metadata: (metadata ?? undefined) as
+            Prisma.InputJsonValue | undefined,
         },
       });
       this.metrics.increment('job_runs_completed_total', { job: jobName });
       this.logger.log(`Job ${jobName} completed`);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Job failed';
+      const message = error instanceof Error ? error.message : 'Job failed';
       await this.prisma.jobRun.update({
         where: { id: run.id },
         data: {
@@ -88,7 +88,9 @@ export class JobRunnerService {
     const now = new Date();
     const expired = await this.prisma.userSubscription.findMany({
       where: {
-        status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.PAST_DUE] },
+        status: {
+          in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.PAST_DUE],
+        },
         currentPeriodEnd: { lt: now },
         deletedAt: null,
       },
@@ -109,7 +111,8 @@ export class JobRunnerService {
   }
 
   private async promoteMaturedTransactions() {
-    const promoted = await this.marketplaceAccounting.promoteMaturedTransactions();
+    const promoted =
+      await this.marketplaceAccounting.promoteMaturedTransactions();
     return { promotedCount: promoted };
   }
 

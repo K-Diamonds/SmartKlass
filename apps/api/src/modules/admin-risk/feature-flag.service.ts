@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { AdminAuditTargetType, Prisma } from '@smartklass/database';
 import { PrismaService } from '../../common/database/prisma.service';
-import { AdminAuditService, auditSnapshot } from './admin-audit.service';
+import { AdminAuditService } from './admin-audit.service';
 
 @Injectable()
 export class FeatureFlagService {

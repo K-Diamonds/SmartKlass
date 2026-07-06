@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { coursePublicUrl } from '@/lib/courses';
-import { getCourseBySlug } from '@/lib/mock-data';
 import { cn } from '@/lib/utils';
 
 type LearnLockedStateProps = {
   courseSlug: string;
+  courseId?: string;
   courseTitle?: string;
   lessonTitle?: string;
   message?: string;
@@ -13,6 +13,7 @@ type LearnLockedStateProps = {
 
 export function LearnLockedState({
   courseSlug,
+  courseId,
   courseTitle,
   lessonTitle,
   message,
@@ -46,7 +47,7 @@ export function LearnLockedState({
           )}
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link
-              href={coursePublicUrl(getCourseBySlug(courseSlug)?.id ?? courseSlug)}
+              href={coursePublicUrl(courseId ?? courseSlug)}
               className="rounded-full bg-accent px-6 py-2.5 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90"
             >
               View access plans

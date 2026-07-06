@@ -335,7 +335,9 @@ export class CheckoutService {
     }
 
     if (course.offersCertificate) {
-      throw new BadRequestException('Certificate is already enabled for this course.');
+      throw new BadRequestException(
+        'Certificate is already enabled for this course.',
+      );
     }
 
     const stripe = this.stripeClient.getClient();
@@ -417,7 +419,9 @@ export class CheckoutService {
       ...(accessPlan.planType === AccessPlanType.SUBSCRIPTION
         ? {
             recurring: {
-              interval: this.stripeRecurringInterval(accessPlan.billingInterval!),
+              interval: this.stripeRecurringInterval(
+                accessPlan.billingInterval!,
+              ),
             },
           }
         : {}),

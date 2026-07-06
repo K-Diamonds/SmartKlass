@@ -5,10 +5,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { CourseCard, EmptyState } from '@/components';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { useFavorites } from '@/hooks/useFavorites';
+import type { CourseDisplay } from '@/lib/catalog/display-types';
 import { listMyFavorites, type FavoriteItem } from '@/lib/api/favorites';
-import type { MockCourse } from '@/lib/mock-data';
 
-function favoriteToMockCourse(favorite: FavoriteItem): MockCourse {
+function favoriteToDisplayCourse(favorite: FavoriteItem): CourseDisplay {
   return {
     id: favorite.courseId,
     slug: favorite.course.slug,
@@ -48,7 +48,7 @@ function favoriteToMockCourse(favorite: FavoriteItem): MockCourse {
 export function FavoritesPageClient() {
   const { isAuthenticated, isLoading: authLoading } = useAuthSession();
   const { favoriteSlugs, isLoading: favoritesLoading } = useFavorites();
-  const [courses, setCourses] = useState<MockCourse[]>([]);
+  const [courses, setCourses] = useState<CourseDisplay[]>([]);
   const [coursesReady, setCoursesReady] = useState(false);
 
   useEffect(() => {
@@ -62,7 +62,7 @@ export function FavoritesPageClient() {
       try {
         const items = await listMyFavorites();
         if (!cancelled) {
-          setCourses(items.map(favoriteToMockCourse));
+          setCourses(items.map(favoriteToDisplayCourse));
         }
       } catch {
         if (!cancelled) {

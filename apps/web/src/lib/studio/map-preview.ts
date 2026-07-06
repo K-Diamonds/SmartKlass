@@ -1,9 +1,9 @@
 import type { ModuleItem } from '@/components/player/LessonPlayer';
-import type { MockCourse } from '@/lib/mock-data';
+import type { CourseDisplay } from '@/lib/catalog/display-types';
 import { COURSE_THUMBNAIL_FALLBACK } from '@/components/course/CourseThumbnailImage';
 import type { StudioAccessPlan, StudioCourse, StudioPlanKind } from './types';
 
-const previewCreator = {
+const previewCreator: CourseDisplay['creator'] = {
   id: 'preview_creator',
   handle: 'creator',
   displayName: 'Course Creator',
@@ -20,7 +20,7 @@ const defaultThumbnail = COURSE_THUMBNAIL_FALLBACK;
 
 function billingIntervalFromKind(
   kind: StudioPlanKind | undefined,
-): MockCourse['billingInterval'] {
+): CourseDisplay['billingInterval'] {
   switch (kind) {
     case 'WEEKLY':
       return 'weekly';
@@ -48,10 +48,10 @@ function lowestActivePaidPlan(plans: StudioAccessPlan[] | undefined) {
   );
 }
 
-export function studioCourseToMockCourse(
+export function studioCourseToDisplayCourse(
   course: StudioCourse,
   plans?: StudioAccessPlan[],
-): MockCourse {
+): CourseDisplay {
   const lowestPaid = lowestActivePaidPlan(plans);
   const activePaidCount =
     plans?.filter((plan) => plan.isActive && plan.kind !== 'FREE').length ?? 0;
@@ -66,6 +66,8 @@ export function studioCourseToMockCourse(
     creator: previewCreator,
     rating: course.rating,
     reviewCount: 0,
+    subscriberCount: 0,
+    viewerCount: 0,
     lessonCount: course.lessonCount,
     durationHours: course.estimatedHours ?? 0,
     level: course.difficultyLevel,
@@ -80,6 +82,9 @@ export function studioCourseToMockCourse(
     previewMaterialsDescription: course.previewMaterialsDescription,
   };
 }
+
+/** @deprecated Use studioCourseToDisplayCourse */
+export const studioCourseToMockCourse = studioCourseToDisplayCourse;
 
 export function studioCourseToModuleItems(course: StudioCourse): ModuleItem[] {
   return course.modules

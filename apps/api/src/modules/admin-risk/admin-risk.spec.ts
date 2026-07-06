@@ -84,6 +84,8 @@ describe('StaffGuard', () => {
       }),
     };
 
-    expect(() => guard.canActivate(context as never)).toThrow(ForbiddenException);
+    expect(() => guard.canActivate(context as never)).toThrow(
+      ForbiddenException,
+    );
   });
 });

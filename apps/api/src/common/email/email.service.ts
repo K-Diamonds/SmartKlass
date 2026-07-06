@@ -19,11 +19,15 @@ export class EmailService {
     private readonly configService: ConfigService,
   ) {}
 
-  async send(input: SendEmailInput): Promise<{ messageId: string }> {
-    const provider = this.configService.get<string>('email.provider') ?? 'console';
+  send(input: SendEmailInput): Promise<{ messageId: string }> {
+    const provider =
+      this.configService.get<string>('email.provider') ?? 'console';
     const messageId = `email_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
-    if (provider === 'console' || !this.configService.get<string>('email.smtpUrl')) {
+    if (
+      provider === 'console' ||
+      !this.configService.get<string>('email.smtpUrl')
+    ) {
       this.logger.log(
         JSON.stringify({
           level: 'info',
@@ -35,14 +39,14 @@ export class EmailService {
           subject: input.subject,
         }),
       );
-      return { messageId };
+      return Promise.resolve({ messageId });
     }
 
     // SMTP / provider integration point — log intent until provider is configured.
     this.logger.warn(
       `Email provider ${provider} configured but not wired; logging only.`,
     );
-    return { messageId };
+    return Promise.resolve({ messageId });
   }
 
   async resolveUserEmail(userId: string): Promise<string | null> {

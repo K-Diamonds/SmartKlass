@@ -35,7 +35,7 @@ describe('CourseVersioningService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
 
-    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
+    prismaMock.$transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
       fn(prismaMock),
     );
 
@@ -128,7 +128,11 @@ describe('CourseVersioningService', () => {
       scheduledFor,
     });
 
-    const result = await service.scheduleVersion('course-1', 'ver-4', scheduledFor);
+    const result = await service.scheduleVersion(
+      'course-1',
+      'ver-4',
+      scheduledFor,
+    );
 
     expect(result.status).toBe(CourseVersionStatus.SCHEDULED);
   });
@@ -140,7 +144,11 @@ describe('CourseVersioningService', () => {
         courseId: 'course-1',
         versionNumber: 5,
         status: CourseVersionStatus.SCHEDULED,
-        snapshot: { course: { title: 'Scheduled' }, modules: [], accessPlans: [] },
+        snapshot: {
+          course: { title: 'Scheduled' },
+          modules: [],
+          accessPlans: [],
+        },
       },
     ]);
     prismaMock.courseVersion.findFirst.mockResolvedValue({
@@ -148,7 +156,11 @@ describe('CourseVersioningService', () => {
       courseId: 'course-1',
       versionNumber: 5,
       status: CourseVersionStatus.SCHEDULED,
-      snapshot: { course: { title: 'Scheduled' }, modules: [], accessPlans: [] },
+      snapshot: {
+        course: { title: 'Scheduled' },
+        modules: [],
+        accessPlans: [],
+      },
     });
     prismaMock.courseVersion.findUnique.mockResolvedValue({
       id: 'ver-5',
@@ -163,7 +175,18 @@ describe('CourseVersioningService', () => {
 
   it('diffs two version snapshots', async () => {
     const fromSnapshot = {
-      course: { title: 'Before', subtitle: null, description: '', thumbnailUrl: null, trailerYoutubeId: null, previewMaterialsDescription: null, estimatedHours: null, difficultyLevel: 'BEGINNER', language: 'en', offersCertificate: false },
+      course: {
+        title: 'Before',
+        subtitle: null,
+        description: '',
+        thumbnailUrl: null,
+        trailerYoutubeId: null,
+        previewMaterialsDescription: null,
+        estimatedHours: null,
+        difficultyLevel: 'BEGINNER',
+        language: 'en',
+        offersCertificate: false,
+      },
       modules: [],
       accessPlans: [],
     };
@@ -178,9 +201,7 @@ describe('CourseVersioningService', () => {
 
     const diff = await service.diffVersions('course-1', 'from', 'to');
 
-    expect(diff).toEqual(
-      diffCourseSnapshots(fromSnapshot, toSnapshot),
-    );
+    expect(diff).toEqual(diffCourseSnapshots(fromSnapshot, toSnapshot));
   });
 
   it('throws when version is missing for diff', async () => {

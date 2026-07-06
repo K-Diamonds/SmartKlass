@@ -159,7 +159,10 @@ export class AccessPlansService {
     return this.toDto(updated);
   }
 
-  private assertValidPaidPrice(planType: AccessPlanType, priceCents: number): void {
+  private assertValidPaidPrice(
+    planType: AccessPlanType,
+    priceCents: number,
+  ): void {
     if (planType === AccessPlanType.FREE) {
       return;
     }

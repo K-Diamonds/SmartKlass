@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OutboxEventStatus } from '@smartklass/database';
 import { PrismaService } from '../database/prisma.service';
@@ -28,7 +33,8 @@ export class OutboxProcessorService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const pollMs = this.configService.get<number>('worker.outboxPollMs') ?? 5000;
+    const pollMs =
+      this.configService.get<number>('worker.outboxPollMs') ?? 5000;
     this.interval = setInterval(() => {
       void this.processBatch().catch((error) => {
         this.logger.error('Outbox batch failed', error);

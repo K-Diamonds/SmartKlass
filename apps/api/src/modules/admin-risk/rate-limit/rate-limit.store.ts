@@ -20,7 +20,7 @@ export class InMemoryRateLimitStore implements RateLimitStore {
     { count: number; resetAt: number }
   >();
 
-  async consume(
+  consume(
     key: string,
     maxRequests: number,
     windowMs: number,
@@ -31,28 +31,32 @@ export class InMemoryRateLimitStore implements RateLimitStore {
     if (!bucket || bucket.resetAt <= now) {
       const resetAt = now + windowMs;
       this.buckets.set(key, { count: 1, resetAt });
-      return { allowed: true, remaining: maxRequests - 1, resetAt };
+      return Promise.resolve({
+        allowed: true,
+        remaining: maxRequests - 1,
+        resetAt,
+      });
     }
 
     if (bucket.count >= maxRequests) {
-      return { allowed: false, remaining: 0, resetAt: bucket.resetAt };
+      return Promise.resolve({
+        allowed: false,
+        remaining: 0,
+        resetAt: bucket.resetAt,
+      });
     }
 
     bucket.count += 1;
-    return {
+    return Promise.resolve({
       allowed: true,
       remaining: maxRequests - bucket.count,
       resetAt: bucket.resetAt,
-    };
+    });
   }
 }
 
 type RedisClient = {
-  eval(
-    script: string,
-    numKeys: number,
-    ...args: string[]
-  ): Promise<number>;
+  eval(script: string, numKeys: number, ...args: string[]): Promise<number>;
   connect(): Promise<void>;
   quit(): Promise<void>;
 };
@@ -97,7 +101,13 @@ export class RedisRateLimitStore implements RateLimitStore {
       return current
     `;
 
-    const count = await client.eval(script, 1, windowKey, String(maxRequests), String(ttlMs));
+    const count = await client.eval(
+      script,
+      1,
+      windowKey,
+      String(maxRequests),
+      String(ttlMs),
+    );
     const allowed = count <= maxRequests;
     return {
       allowed,

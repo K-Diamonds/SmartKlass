@@ -3,9 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CourseVersionStatus, Prisma } from '@smartklass/database';
+import { CourseVersionStatus } from '@smartklass/database';
 import { PrismaService } from '../../common/database/prisma.service';
-import { applyCourseSnapshot, buildSnapshotFromCourse } from './course-version-apply';
+import {
+  applyCourseSnapshot,
+  buildSnapshotFromCourse,
+} from './course-version-apply';
 import {
   CourseSnapshotData,
   diffCourseSnapshots,
@@ -22,7 +25,7 @@ export class CourseVersioningService {
     const snapshot = buildSnapshotFromCourse({
       ...course,
       modules: course.modules as never,
-      accessPlans: course.accessPlans as never,
+      accessPlans: course.accessPlans,
     });
 
     return this.prisma.courseVersion.create({
@@ -30,7 +33,7 @@ export class CourseVersioningService {
         courseId,
         versionNumber: nextVersion,
         status: CourseVersionStatus.DRAFT,
-        snapshot: snapshot as Prisma.InputJsonValue,
+        snapshot: snapshot,
         createdByUserId,
       },
     });
@@ -44,7 +47,11 @@ export class CourseVersioningService {
     return this.promoteVersion(courseId, versionId, null);
   }
 
-  async scheduleVersion(courseId: string, versionId: string, scheduledFor: Date) {
+  async scheduleVersion(
+    courseId: string,
+    versionId: string,
+    scheduledFor: Date,
+  ) {
     const version = await this.prisma.courseVersion.findFirst({
       where: { id: versionId, courseId, status: CourseVersionStatus.DRAFT },
     });
@@ -72,7 +79,11 @@ export class CourseVersioningService {
     });
 
     for (const version of due) {
-      await this.promoteVersion(version.courseId, version.id, CourseVersionStatus.SCHEDULED);
+      await this.promoteVersion(
+        version.courseId,
+        version.id,
+        CourseVersionStatus.SCHEDULED,
+      );
     }
 
     return due.length;
@@ -91,8 +102,12 @@ export class CourseVersioningService {
     toVersionId: string,
   ): Promise<VersionDiffItem[]> {
     const [fromVersion, toVersion] = await Promise.all([
-      this.prisma.courseVersion.findFirst({ where: { id: fromVersionId, courseId } }),
-      this.prisma.courseVersion.findFirst({ where: { id: toVersionId, courseId } }),
+      this.prisma.courseVersion.findFirst({
+        where: { id: fromVersionId, courseId },
+      }),
+      this.prisma.courseVersion.findFirst({
+        where: { id: toVersionId, courseId },
+      }),
     ]);
 
     if (!fromVersion || !toVersion) {
@@ -138,7 +153,11 @@ export class CourseVersioningService {
       await applyCourseSnapshot(tx, courseId, version.snapshot);
 
       await tx.courseVersion.updateMany({
-        where: { courseId, status: CourseVersionStatus.PUBLISHED, id: { not: versionId } },
+        where: {
+          courseId,
+          status: CourseVersionStatus.PUBLISHED,
+          id: { not: versionId },
+        },
         data: { status: CourseVersionStatus.ARCHIVED },
       });
 
@@ -185,7 +204,10 @@ export class CourseVersioningService {
             },
           },
         },
-        accessPlans: { where: { deletedAt: null }, orderBy: { sortOrder: 'asc' } },
+        accessPlans: {
+          where: { deletedAt: null },
+          orderBy: { sortOrder: 'asc' },
+        },
       },
     });
 

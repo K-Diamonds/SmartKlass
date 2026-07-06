@@ -7,7 +7,7 @@ import { listPublishedCourses } from '@/lib/api/courses';
 import { summaryToDisplayCourse } from '@/lib/catalog/course-display';
 import { listMySubscriptions } from '@/lib/api/subscriptions';
 import { getMyLibrary } from '@/lib/api/users';
-import type { MockCourse } from '@/lib/mock-data';
+import type { CourseDisplay } from '@/lib/catalog/display-types';
 
 const ACTIVE_STATUSES = new Set(['ACTIVE', 'TRIALING']);
 
@@ -16,7 +16,7 @@ export function DashboardPageClient() {
   const [libraryCount, setLibraryCount] = useState(0);
   const [subscriptionCount, setSubscriptionCount] = useState(0);
   const [ready, setReady] = useState(false);
-  const [recommended, setRecommended] = useState<MockCourse[]>([]);
+  const [recommended, setRecommended] = useState<CourseDisplay[]>([]);
 
   useEffect(() => {
     if (!isAuthenticated) {

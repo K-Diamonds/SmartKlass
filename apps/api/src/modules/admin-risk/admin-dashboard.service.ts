@@ -134,7 +134,9 @@ export class AdminDashboardService {
       },
     });
 
-    const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
+    const profileById = new Map(
+      profiles.map((profile) => [profile.id, profile]),
+    );
 
     return sorted.map((row) => ({
       creatorProfileId: row.creatorProfileId,
@@ -144,7 +146,8 @@ export class AdminDashboardService {
       grossSalesCents: row._sum.grossAmountCents ?? 0,
       creatorNetCents: row._sum.creatorNetCents ?? 0,
       transactionCount: row._count,
-      trustLevel: profileById.get(row.creatorProfileId)?.riskProfile?.trustLevel ?? 'NEW',
+      trustLevel:
+        profileById.get(row.creatorProfileId)?.riskProfile?.trustLevel ?? 'NEW',
     }));
   }
 
@@ -243,7 +246,9 @@ export class AdminDashboardService {
           creatorTransaction: {
             select: {
               id: true,
-              creatorProfile: { select: { id: true, displayName: true, slug: true } },
+              creatorProfile: {
+                select: { id: true, displayName: true, slug: true },
+              },
               course: { select: { id: true, title: true } },
             },
           },
@@ -279,7 +284,9 @@ export class AdminDashboardService {
           creatorTransaction: {
             select: {
               id: true,
-              creatorProfile: { select: { id: true, displayName: true, slug: true } },
+              creatorProfile: {
+                select: { id: true, displayName: true, slug: true },
+              },
               course: { select: { id: true, title: true } },
             },
           },
@@ -312,7 +319,9 @@ export class AdminDashboardService {
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
-          creatorProfile: { select: { id: true, displayName: true, slug: true } },
+          creatorProfile: {
+            select: { id: true, displayName: true, slug: true },
+          },
         },
       }),
       this.prisma.creatorPayout.count({ where }),
@@ -328,7 +337,9 @@ export class AdminDashboardService {
     const range = this.dateRange(query);
 
     const where: Prisma.CreatorTransactionWhereInput = {
-      ...(query.status ? { status: query.status as CreatorTransactionStatus } : {}),
+      ...(query.status
+        ? { status: query.status as CreatorTransactionStatus }
+        : {}),
       ...(query.creatorProfileId
         ? { creatorProfileId: query.creatorProfileId }
         : {}),
@@ -351,9 +362,17 @@ export class AdminDashboardService {
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
-          creatorProfile: { select: { id: true, displayName: true, slug: true } },
+          creatorProfile: {
+            select: { id: true, displayName: true, slug: true },
+          },
           course: { select: { id: true, title: true } },
-          payment: { select: { id: true, status: true, user: { select: { email: true } } } },
+          payment: {
+            select: {
+              id: true,
+              status: true,
+              user: { select: { email: true } },
+            },
+          },
         },
       }),
       this.prisma.creatorTransaction.count({ where }),

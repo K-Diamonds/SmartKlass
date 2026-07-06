@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { ModuleBuilderClient } from '@/components/studio/ModuleBuilderClient';
-import { getStudioModule } from '@/lib/studio/mock-data';
 import { loadStudioCourseWithFallback } from '@/lib/studio/load-studio-course';
 import type { StudioModule } from '@/lib/studio/types';
 
@@ -25,18 +24,6 @@ export function ModuleBuilderLoader({ courseId, moduleId }: ModuleBuilderLoaderP
     let cancelled = false;
 
     async function loadModule() {
-      const mockResult = getStudioModule(courseId, moduleId);
-      if (mockResult) {
-        if (!cancelled) {
-          setData({
-            courseId: mockResult.course.id,
-            courseTitle: mockResult.course.title,
-            module: mockResult.module,
-          });
-        }
-        return;
-      }
-
       const course = await loadStudioCourseWithFallback(courseId);
       if (cancelled) {
         return;

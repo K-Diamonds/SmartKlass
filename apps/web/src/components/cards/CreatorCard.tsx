@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Star } from 'lucide-react';
-import type { MockCreator } from '@/lib/mock-data';
+import type { CreatorDisplay } from '@/lib/catalog/display-types';
 import { discoverCreatorUrl } from '@/lib/discover';
 import { cn } from '@/lib/utils';
 
 type CreatorCardProps = {
-  creator: MockCreator;
+  creator: CreatorDisplay;
   variant?: 'light' | 'dark';
   className?: string;
 };

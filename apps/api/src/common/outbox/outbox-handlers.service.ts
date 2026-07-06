@@ -11,6 +11,19 @@ import { OutboxIdempotencyService } from './outbox-idempotency.service';
 
 type HandlerEvent = DomainEvent & { id: string };
 
+function payloadText(value: unknown, fallback = ''): string {
+  if (value == null) {
+    return fallback;
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return fallback;
+}
+
 @Injectable()
 export class OutboxHandlersService implements OnModuleInit {
   private readonly logger = new Logger(OutboxHandlersService.name);
@@ -69,17 +82,18 @@ export class OutboxHandlersService implements OnModuleInit {
   }
 
   private async onPaymentCompleted(event: HandlerEvent) {
-    await this.guard('payment_completed', event, async () => {
+    await this.guard('payment_completed', event, () => {
       this.logger.log(
-        `PaymentCompleted payment=${event.payload.paymentId ?? event.payload.purchaseId}`,
+        `PaymentCompleted payment=${payloadText(event.payload.paymentId) || payloadText(event.payload.purchaseId)}`,
       );
+      return Promise.resolve();
     });
   }
 
   private async onCourseAccessGranted(event: HandlerEvent) {
     await this.guard('course_access_granted_enqueue', event, async () => {
-      const userId = String(event.payload.userId ?? '');
-      const courseId = String(event.payload.courseId ?? '');
+      const userId = payloadText(event.payload.userId);
+      const courseId = payloadText(event.payload.courseId);
       if (!userId || !courseId) return;
 
       await this.prisma.outboxEvent.createMany({
@@ -109,7 +123,7 @@ export class OutboxHandlersService implements OnModuleInit {
         data: {
           eventType: DOMAIN_EVENTS.ANALYTICS_UPDATED,
           aggregateType: 'creator_transaction',
-          aggregateId: String(event.payload.transactionId ?? event.id),
+          aggregateId: payloadText(event.payload.transactionId, event.id),
           payload: event.payload as Prisma.InputJsonValue,
           correlationId: event.correlationId,
         },
@@ -119,11 +133,9 @@ export class OutboxHandlersService implements OnModuleInit {
 
   private async onEmailQueued(event: HandlerEvent) {
     await this.guard('email_queued', event, async () => {
-      const userId = String(event.payload.userId ?? event.aggregateId ?? '');
-      const template = String(event.payload.template ?? 'generic');
-      const courseId = event.payload.courseId
-        ? String(event.payload.courseId)
-        : undefined;
+      const userId = payloadText(event.payload.userId, event.aggregateId);
+      const template = payloadText(event.payload.template, 'generic');
+      const courseId = payloadText(event.payload.courseId) || undefined;
 
       const to = await this.email.resolveUserEmail(userId);
       if (!to) {
@@ -157,10 +169,8 @@ export class OutboxHandlersService implements OnModuleInit {
 
   private async onNotificationSent(event: HandlerEvent) {
     await this.guard('notification_sent', event, async () => {
-      const userId = String(event.payload.userId ?? event.aggregateId ?? '');
-      const courseId = event.payload.courseId
-        ? String(event.payload.courseId)
-        : undefined;
+      const userId = payloadText(event.payload.userId, event.aggregateId);
+      const courseId = payloadText(event.payload.courseId) || undefined;
 
       if (!userId) return;
 
@@ -213,10 +223,11 @@ export class OutboxHandlersService implements OnModuleInit {
   }
 
   private async onSubscriptionExpired(event: HandlerEvent) {
-    await this.guard('subscription_expired', event, async () => {
+    await this.guard('subscription_expired', event, () => {
       this.logger.log(
-        `SubscriptionExpired id=${event.payload.subscriptionId}`,
+        `SubscriptionExpired id=${payloadText(event.payload.subscriptionId)}`,
       );
+      return Promise.resolve();
     });
   }
 }

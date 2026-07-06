@@ -17,7 +17,10 @@ export class OutboxIdempotencyService {
     return Boolean(existing);
   }
 
-  async markProcessed(outboxEventId: string, handlerKey: string): Promise<void> {
+  async markProcessed(
+    outboxEventId: string,
+    handlerKey: string,
+  ): Promise<void> {
     await this.prisma.outboxHandlerReceipt.create({
       data: { outboxEventId, handlerKey },
     });

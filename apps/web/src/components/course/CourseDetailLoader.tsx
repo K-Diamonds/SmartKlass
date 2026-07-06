@@ -2,20 +2,24 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { listCreatorCourseAccessPlans } from '@/lib/api/access-plans';
-import { listCourseAccessPlans } from '@/lib/api/access-plans';
+import {
+  listCreatorCourseAccessPlans,
+  listCourseAccessPlans,
+} from '@/lib/api/access-plans';
 import { getAuthToken } from '@/lib/api/client';
 import { getPublishedCourseById } from '@/lib/api/courses';
 import { detailToDisplayCourse } from '@/lib/catalog/course-display';
 import { CourseDetailView } from '@/components/course/CourseDetailView';
 import type { ModuleItem } from '@/components/player/LessonPlayer';
-import { studioCourseToMockCourse, studioCourseToModuleItems } from '@/lib/studio/map-preview';
+import { loadStudioCourseWithFallback } from '@/lib/studio/load-studio-course';
 import {
   apiAccessPlanToStudio,
   buildDefaultAccessPlans,
 } from '@/lib/studio/map-access-plan';
-import { loadStudioCourseWithFallback } from '@/lib/studio/load-studio-course';
-import { getStudioPlans } from '@/lib/studio/mock-data';
+import {
+  studioCourseToDisplayCourse,
+  studioCourseToModuleItems,
+} from '@/lib/studio/map-preview';
 import { loadStudioPlans } from '@/lib/studio/session-plans';
 import type { StudioAccessPlan } from '@/lib/studio/types';
 
@@ -28,11 +32,6 @@ function resolvePreviewPlans(courseId: string): StudioAccessPlan[] {
   const storedPlans = loadStudioPlans(courseId);
   if (storedPlans && storedPlans.length > 0) {
     return storedPlans;
-  }
-
-  const mockPlans = getStudioPlans(courseId);
-  if (mockPlans.length > 0) {
-    return mockPlans;
   }
 
   return buildDefaultAccessPlans(courseId);
@@ -85,7 +84,7 @@ export function CourseDetailLoader({ courseId, preview = false }: CourseDetailLo
           }
 
           setLoaded({
-            course: studioCourseToMockCourse(storedCourse, plans),
+            course: studioCourseToDisplayCourse(storedCourse, plans),
             modules: studioCourseToModuleItems(storedCourse),
             isCreatorPreview: true,
             studioPlans: plans,

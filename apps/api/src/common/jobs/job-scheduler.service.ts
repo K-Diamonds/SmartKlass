@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JobRunnerService } from './job-runner.service';
 
@@ -65,7 +70,8 @@ export class JobSchedulerService implements OnModuleInit, OnModuleDestroy {
     }
 
     const hour = new Date().getUTCHours();
-    const runHour = this.configService.get<number>('worker.dailyJobHourUtc') ?? 6;
+    const runHour =
+      this.configService.get<number>('worker.dailyJobHourUtc') ?? 6;
     if (hour < runHour) {
       return;
     }

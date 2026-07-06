@@ -93,7 +93,10 @@ describe('StripeWebhookService', () => {
         { provide: StripeClientService, useValue: stripeClientMock },
         { provide: BillingFulfillmentService, useValue: fulfillmentMock },
         { provide: CreatorBillingService, useValue: creatorBillingMock },
-        { provide: MarketplaceAccountingService, useValue: marketplaceAccountingMock },
+        {
+          provide: MarketplaceAccountingService,
+          useValue: marketplaceAccountingMock,
+        },
         { provide: MetricsService, useValue: metricsMock },
         { provide: TracingService, useValue: tracingMock },
       ],
@@ -319,7 +322,7 @@ describe('BillingFulfillmentService', () => {
     },
   };
 
-  const creatorBillingMock = {
+  const _creatorBillingMock = {
     creditEarnings: jest.fn(),
   };
 
@@ -343,7 +346,10 @@ describe('BillingFulfillmentService', () => {
       providers: [
         BillingFulfillmentService,
         { provide: PrismaService, useValue: prismaMock },
-        { provide: MarketplaceAccountingService, useValue: marketplaceAccountingMock },
+        {
+          provide: MarketplaceAccountingService,
+          useValue: marketplaceAccountingMock,
+        },
         { provide: OutboxService, useValue: outboxMock },
       ],
     }).compile();

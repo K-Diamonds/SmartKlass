@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { MockPlan } from '@/lib/mock-data';
+import type { PlanDisplay } from '@/lib/catalog/display-types';
 import { cn, formatPrice } from '@/lib/utils';
 import {
   calculatePlatformFee,
@@ -8,7 +8,7 @@ import {
 import { Check } from 'lucide-react';
 
 export type PricingPlan = Pick<
-  MockPlan,
+  PlanDisplay,
   'name' | 'description' | 'priceCents' | 'billingInterval' | 'features' | 'highlighted'
 >;
 

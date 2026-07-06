@@ -67,8 +67,7 @@ export class AdminRbacService implements OnModuleInit {
   }
 
   async bootstrapStaffFromEnv() {
-    const staffEmails =
-      this.configService.get<string[]>('staff.emails') ?? [];
+    const staffEmails = this.configService.get<string[]>('staff.emails') ?? [];
     const staffUserIds =
       this.configService.get<string[]>('staff.userIds') ?? [];
 
@@ -135,9 +134,7 @@ export class AdminRbacService implements OnModuleInit {
     );
 
     for (const { identifier, role } of assignments) {
-      if (
-        !Object.values(AdminRoleKey).includes(role as AdminRoleKey)
-      ) {
+      if (!Object.values(AdminRoleKey).includes(role as AdminRoleKey)) {
         this.logger.warn(`Skipping unknown admin role: ${role}`);
         continue;
       }
@@ -172,7 +169,9 @@ export class AdminRbacService implements OnModuleInit {
       });
 
       if (!user) {
-        this.logger.warn(`No user found for admin role assignment: ${identifier}`);
+        this.logger.warn(
+          `No user found for admin role assignment: ${identifier}`,
+        );
         continue;
       }
 
@@ -222,10 +221,7 @@ export class AdminRbacService implements OnModuleInit {
     return permissions.includes(permission);
   }
 
-  async hasAnyPermission(
-    userId: string,
-    required: string[],
-  ): Promise<boolean> {
+  async hasAnyPermission(userId: string, required: string[]): Promise<boolean> {
     if (required.length === 0) return true;
     const permissions = await this.getUserPermissions(userId);
     return required.some((p) => permissions.includes(p));

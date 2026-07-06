@@ -10,7 +10,6 @@ import {
   apiAccessPlanToStudio,
   buildDefaultAccessPlans,
 } from '@/lib/studio/map-access-plan';
-import { getStudioPlans } from '@/lib/studio/mock-data';
 import { loadStudioPlans } from '@/lib/studio/session-plans';
 import type { StudioAccessPlan } from '@/lib/studio/types';
 
@@ -22,11 +21,6 @@ function resolveInitialPlans(courseId: string): StudioAccessPlan[] {
   const storedPlans = loadStudioPlans(courseId);
   if (storedPlans && storedPlans.length > 0) {
     return storedPlans;
-  }
-
-  const mockPlans = getStudioPlans(courseId);
-  if (mockPlans.length > 0) {
-    return mockPlans;
   }
 
   return buildDefaultAccessPlans(courseId);

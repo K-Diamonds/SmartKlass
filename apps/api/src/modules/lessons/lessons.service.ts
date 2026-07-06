@@ -224,7 +224,9 @@ export class LessonsService {
     const resourceUrl = dto.url ?? dto.purchaseUrl;
 
     if (!resourceUrl) {
-      throw new BadRequestException('A resource link or purchase link is required.');
+      throw new BadRequestException(
+        'A resource link or purchase link is required.',
+      );
     }
 
     const resourceType =

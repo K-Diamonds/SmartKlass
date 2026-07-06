@@ -204,8 +204,17 @@ export class TransactionTimelineQuery {
       include: {
         creatorProfile: { select: { displayName: true, slug: true } },
         course: { select: { title: true } },
-        payment: { select: { status: true, user: { select: { email: true } } } },
-        refunds: { select: { id: true, amountCents: true, status: true, createdAt: true } },
+        payment: {
+          select: { status: true, user: { select: { email: true } } },
+        },
+        refunds: {
+          select: {
+            id: true,
+            amountCents: true,
+            status: true,
+            createdAt: true,
+          },
+        },
         disputes: { select: { id: true, status: true, createdAt: true } },
       },
     });

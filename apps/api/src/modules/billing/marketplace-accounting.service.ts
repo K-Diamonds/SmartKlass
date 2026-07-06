@@ -14,7 +14,11 @@ import {
 } from '@smartklass/shared';
 import { PrismaService } from '../../common/database/prisma.service';
 import { CreatorPayoutPolicyService } from './creator-payout-policy.service';
-import { mergeJsonMetadata, metadataNumber, metadataString } from './merge-metadata';
+import {
+  mergeJsonMetadata,
+  metadataNumber,
+  metadataString,
+} from './merge-metadata';
 import Stripe from 'stripe';
 
 export type CreatorLedgerBalances = {
@@ -84,7 +88,8 @@ export class MarketplaceAccountingService {
       metadataNumber(input.metadata, 'creatorEarningsCents') ??
       Math.max(input.grossAmountCents - platformFeeCents, 0);
     const feeRuleLabel =
-      metadataString(input.metadata, 'feeRuleLabel') ?? feeBreakdown.feeRuleLabel;
+      metadataString(input.metadata, 'feeRuleLabel') ??
+      feeBreakdown.feeRuleLabel;
 
     return this.recordSale(tx, {
       ...input,
@@ -138,7 +143,8 @@ export class MarketplaceAccountingService {
         currency: input.currency,
         stripePaymentIntentId: input.stripePaymentIntentId ?? undefined,
         stripeChargeId: input.stripeChargeId ?? undefined,
-        stripeBalanceTransactionId: input.stripeBalanceTransactionId ?? undefined,
+        stripeBalanceTransactionId:
+          input.stripeBalanceTransactionId ?? undefined,
         stripeInvoiceId: input.stripeInvoiceId ?? undefined,
         availableAt,
         metadata: mergeJsonMetadata(null, {
@@ -342,7 +348,10 @@ export class MarketplaceAccountingService {
       return;
     }
 
-    if (status === DisputeStatus.WON || status === DisputeStatus.WARNING_CLOSED) {
+    if (
+      status === DisputeStatus.WON ||
+      status === DisputeStatus.WARNING_CLOSED
+    ) {
       const nextStatus =
         transaction.availableAt && transaction.availableAt <= new Date()
           ? CreatorTransactionStatus.AVAILABLE
@@ -422,7 +431,11 @@ export class MarketplaceAccountingService {
 
     if (status === CreatorPayoutStatus.PAID) {
       await this.promoteMaturedTransactions(profile.id);
-      await this.markTransactionsPaidOut(profile.id, payout.amount, paidAt ?? new Date());
+      await this.markTransactionsPaidOut(
+        profile.id,
+        payout.amount,
+        paidAt ?? new Date(),
+      );
     }
   }
 
@@ -484,9 +497,7 @@ export class MarketplaceAccountingService {
       where: {
         OR: [
           { paymentId },
-          ...(stripePaymentIntentId
-            ? [{ stripePaymentIntentId }]
-            : []),
+          ...(stripePaymentIntentId ? [{ stripePaymentIntentId }] : []),
         ],
       },
     });
@@ -496,9 +507,7 @@ export class MarketplaceAccountingService {
         where: { id: transaction.id },
         data: {
           ...(transaction.stripeChargeId ? {} : { stripeChargeId }),
-          ...(stripeBalanceTransactionId
-            ? { stripeBalanceTransactionId }
-            : {}),
+          ...(stripeBalanceTransactionId ? { stripeBalanceTransactionId } : {}),
         },
       });
     }
@@ -540,7 +549,9 @@ export class MarketplaceAccountingService {
     }
   }
 
-  private mapPayoutStatus(status: Stripe.Payout['status']): CreatorPayoutStatus {
+  private mapPayoutStatus(
+    status: Stripe.Payout['status'],
+  ): CreatorPayoutStatus {
     switch (status) {
       case 'pending':
         return CreatorPayoutStatus.PENDING;

@@ -132,7 +132,7 @@ export function AdminFeatureFlagsPage() {
           before={{ enabled: toggleTarget.enabled }}
           after={{ enabled: !toggleTarget.enabled }}
           loading={actionLoading}
-          onConfirm={async (reason) => {
+          onConfirm={async () => {
             setActionLoading(true);
             try {
               await updateFeatureFlag(toggleTarget.key, !toggleTarget.enabled);

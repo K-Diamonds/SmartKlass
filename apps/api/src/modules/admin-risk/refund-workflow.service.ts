@@ -133,7 +133,9 @@ export class RefundWorkflowService {
     });
 
     if (!payment || payment.status !== PaymentStatus.SUCCEEDED) {
-      throw new BadRequestException('Payment must be succeeded to request refund.');
+      throw new BadRequestException(
+        'Payment must be succeeded to request refund.',
+      );
     }
 
     if (input.amountCents <= 0 || input.amountCents > payment.amountCents) {
@@ -204,7 +206,9 @@ export class RefundWorkflowService {
       existing.status !== RefundRequestStatus.REQUESTED &&
       existing.status !== RefundRequestStatus.APPROVED
     ) {
-      throw new BadRequestException('Refund request cannot be denied in current state.');
+      throw new BadRequestException(
+        'Refund request cannot be denied in current state.',
+      );
     }
 
     const updated = await this.prisma.refundRequest.update({

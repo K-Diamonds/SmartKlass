@@ -26,7 +26,13 @@ type ReconciliationSummary = {
 
 type LineDiscrepancy = {
   code: string;
-  objectType: 'payment' | 'charge' | 'creator_transaction' | 'transfer' | 'platform_fee' | 'payout';
+  objectType:
+    | 'payment'
+    | 'charge'
+    | 'creator_transaction'
+    | 'transfer'
+    | 'platform_fee'
+    | 'payout';
   localId?: string;
   stripeId?: string;
   message: string;
@@ -245,8 +251,14 @@ export class StripeReconciliationService {
       localPaymentsCount: payments.length,
       localPaymentsCents: payments.reduce((s, p) => s + p.amountCents, 0),
       localCreatorTransactionsCount: transactions.length,
-      localCreatorNetCents: transactions.reduce((s, t) => s + t.creatorNetCents, 0),
-      localPlatformFeeCents: transactions.reduce((s, t) => s + t.platformFeeCents, 0),
+      localCreatorNetCents: transactions.reduce(
+        (s, t) => s + t.creatorNetCents,
+        0,
+      ),
+      localPlatformFeeCents: transactions.reduce(
+        (s, t) => s + t.platformFeeCents,
+        0,
+      ),
       stripeChargesCount: stripeCharges.length,
       stripeChargesCents: stripeCharges.reduce((s, c) => s + c.amount, 0),
       stripeApplicationFeesCents: stripeCharges.reduce(
@@ -278,9 +290,12 @@ export class StripeReconciliationService {
     };
   }
 
-  private findTotalDiscrepancies(summary: ReconciliationSummary): LineDiscrepancy[] {
+  private findTotalDiscrepancies(
+    summary: ReconciliationSummary,
+  ): LineDiscrepancy[] {
     const items: LineDiscrepancy[] = [];
-    const paymentDelta = summary.localPaymentsCents - summary.stripeChargesCents;
+    const paymentDelta =
+      summary.localPaymentsCents - summary.stripeChargesCents;
     if (paymentDelta !== 0) {
       items.push({
         code: 'payments_vs_charges_total',
@@ -297,7 +312,8 @@ export class StripeReconciliationService {
       items.push({
         code: 'platform_fees_total',
         objectType: 'platform_fee',
-        message: 'Aggregate platform fees do not match Stripe application fees.',
+        message:
+          'Aggregate platform fees do not match Stripe application fees.',
         localCents: summary.localPlatformFeeCents,
         stripeCents: summary.stripeApplicationFeesCents,
         deltaCents: feeDelta,
@@ -363,7 +379,8 @@ export class StripeReconciliationService {
           objectType: 'payment',
           localId: payment.id,
           stripeId: chargeId,
-          message: 'Local payment references Stripe charge not found in period.',
+          message:
+            'Local payment references Stripe charge not found in period.',
           localCents: payment.amountCents,
         });
         continue;
@@ -408,16 +425,21 @@ export class StripeReconciliationService {
         continue;
       }
       const charge = chargeById.get(tx.stripeChargeId);
-      if (charge && tx.platformFeeCents !== (charge.application_fee_amount ?? 0)) {
+      if (
+        charge &&
+        tx.platformFeeCents !== (charge.application_fee_amount ?? 0)
+      ) {
         items.push({
           code: 'transaction_fee_mismatch',
           objectType: 'creator_transaction',
           localId: tx.id,
           stripeId: tx.stripeChargeId,
-          message: 'Platform fee on transaction does not match charge application fee.',
+          message:
+            'Platform fee on transaction does not match charge application fee.',
           localCents: tx.platformFeeCents,
           stripeCents: charge.application_fee_amount ?? 0,
-          deltaCents: tx.platformFeeCents - (charge.application_fee_amount ?? 0),
+          deltaCents:
+            tx.platformFeeCents - (charge.application_fee_amount ?? 0),
         });
       }
     }

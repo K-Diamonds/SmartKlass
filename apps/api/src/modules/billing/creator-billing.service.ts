@@ -116,10 +116,7 @@ export class CreatorBillingService {
         nextPayoutDate = estimated.toISOString();
       }
 
-      const stripeFeesCents = await this.sumRecentStripeFees(
-        stripe,
-        accountId,
-      );
+      const stripeFeesCents = await this.sumRecentStripeFees(stripe, accountId);
 
       return {
         stripeConnected: true,
@@ -146,7 +143,9 @@ export class CreatorBillingService {
     currency: string,
   ): number {
     return entries
-      .filter((entry) => entry.currency.toLowerCase() === currency.toLowerCase())
+      .filter(
+        (entry) => entry.currency.toLowerCase() === currency.toLowerCase(),
+      )
       .reduce((sum, entry) => sum + entry.amount, 0);
   }
 
@@ -185,7 +184,9 @@ export class CreatorBillingService {
     return stripeFeesCents;
   }
 
-  async getStripeConnectStatus(userId: string): Promise<StripeConnectStatusDto> {
+  async getStripeConnectStatus(
+    userId: string,
+  ): Promise<StripeConnectStatusDto> {
     const profile = await this.getCreatorProfileOrThrow(userId);
     const stripeConfigured = this.stripeClient.isConfigured();
     const payoutDelayDays =
@@ -263,7 +264,8 @@ export class CreatorBillingService {
       );
     }
 
-    const canPayout = await this.payoutPolicy.canReceivePayouts(creatorProfileId);
+    const canPayout =
+      await this.payoutPolicy.canReceivePayouts(creatorProfileId);
     if (!canPayout) {
       throw new BadRequestException(
         'This course is temporarily unavailable while the creator account is under review.',
@@ -271,7 +273,9 @@ export class CreatorBillingService {
     }
 
     const stripe = this.stripeClient.getClient();
-    const account = await stripe.accounts.retrieve(profile.stripeConnectAccountId);
+    const account = await stripe.accounts.retrieve(
+      profile.stripeConnectAccountId,
+    );
 
     await this.syncConnectPayoutSchedule(
       profile.stripeConnectAccountId,
@@ -438,7 +442,9 @@ export class CreatorBillingService {
     });
 
     if (!link.url) {
-      throw new BadRequestException('Stripe onboarding link could not be created.');
+      throw new BadRequestException(
+        'Stripe onboarding link could not be created.',
+      );
     }
 
     return { url: link.url };
@@ -461,7 +467,9 @@ export class CreatorBillingService {
     );
 
     if (!link.url) {
-      throw new BadRequestException('Stripe dashboard link could not be created.');
+      throw new BadRequestException(
+        'Stripe dashboard link could not be created.',
+      );
     }
 
     return { url: link.url };
@@ -487,7 +495,9 @@ export class CreatorBillingService {
     const course = await this.getOwnedCourseOrThrow(creatorProfileId, courseId);
 
     if (course.offersCertificate) {
-      throw new BadRequestException('Certificate is already enabled for this course.');
+      throw new BadRequestException(
+        'Certificate is already enabled for this course.',
+      );
     }
 
     const profile = await this.prisma.creatorProfile.findUnique({
@@ -543,7 +553,8 @@ export class CreatorBillingService {
       return {
         courseId: updatedCourse.id,
         offersCertificate: updatedCourse.offersCertificate,
-        certificatePaidAt: updatedCourse.certificatePaidAt?.toISOString() ?? null,
+        certificatePaidAt:
+          updatedCourse.certificatePaidAt?.toISOString() ?? null,
         availableBalanceCents: updatedProfile.availableBalanceCents,
       };
     });
@@ -613,7 +624,10 @@ export class CreatorBillingService {
     };
   }
 
-  private async getOwnedCourseOrThrow(creatorProfileId: string, courseId: string) {
+  private async getOwnedCourseOrThrow(
+    creatorProfileId: string,
+    courseId: string,
+  ) {
     const course = await this.prisma.course.findFirst({
       where: {
         id: courseId,

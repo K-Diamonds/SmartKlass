@@ -3,14 +3,14 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Clock, Star, Users } from 'lucide-react';
-import type { MockCourse } from '@/lib/mock-data';
+import type { CourseDisplay } from '@/lib/catalog/display-types';
 import { CourseImageBadge } from '@/components/course/CourseImageBadge';
 import { CourseLanguageBadge } from '@/components/course/CourseLanguageBadge';
 import { FavoriteButton } from '@/components/course/FavoriteButton';
 import { coursePublicUrl } from '@/lib/courses';
 import { cn, formatCoursePrice } from '@/lib/utils';
 
-function coursePriceOptions(course: MockCourse) {
+function coursePriceOptions(course: CourseDisplay) {
   return {
     priceCents: course.priceFromCents,
     billingInterval: course.billingInterval ?? 'lifetime',
@@ -19,7 +19,7 @@ function coursePriceOptions(course: MockCourse) {
 }
 
 type CourseCardProps = {
-  course: MockCourse;
+  course: CourseDisplay;
   variant?: 'default' | 'featured' | 'compact';
   className?: string;
   showFavorite?: boolean;
@@ -33,7 +33,7 @@ function fmtCount(n: number) {
   return String(n);
 }
 
-function CourseMetaRow({ course }: { course: MockCourse }) {
+function CourseMetaRow({ course }: { course: CourseDisplay }) {
   return (
     <div className="mb-2 flex items-center justify-between gap-2">
       <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">

@@ -7,10 +7,7 @@ type CorrelationStore = {
 
 const storage = new AsyncLocalStorage<CorrelationStore>();
 
-export function runWithCorrelation<T>(
-  store: CorrelationStore,
-  fn: () => T,
-): T {
+export function runWithCorrelation<T>(store: CorrelationStore, fn: () => T): T {
   return storage.run(store, fn);
 }
 

@@ -8,10 +8,7 @@ import type {
 @Injectable()
 export class DomainEventBusService {
   private readonly logger = new Logger(DomainEventBusService.name);
-  private readonly handlers = new Map<
-    DomainEventType,
-    DomainEventHandler[]
-  >();
+  private readonly handlers = new Map<DomainEventType, DomainEventHandler[]>();
 
   register(eventType: DomainEventType, handler: DomainEventHandler): void {
     const list = this.handlers.get(eventType) ?? [];
