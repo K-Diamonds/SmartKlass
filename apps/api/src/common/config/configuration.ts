@@ -40,7 +40,8 @@ export default () => ({
   },
   redisUrl: process.env.REDIS_URL,
   worker: {
-    enabled: process.env.WORKER_ENABLED ?? 'true',
+    enabled:
+      process.env.WORKER_ENABLED ?? (process.env.VERCEL ? 'false' : 'true'),
     outboxPollMs: parseInt(process.env.OUTBOX_POLL_MS ?? '5000', 10),
     dailyJobPollMs: parseInt(process.env.DAILY_JOB_POLL_MS ?? '60000', 10),
     dailyJobHourUtc: parseInt(process.env.DAILY_JOB_HOUR_UTC ?? '6', 10),

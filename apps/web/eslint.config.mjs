@@ -9,6 +9,10 @@ const eslintConfig = defineConfig([
     rules: {
       // Standard data-fetching effects intentionally set state after async work.
       'react-hooks/set-state-in-effect': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_' },
+      ],
     },
   },
   // Override default ignores of eslint-config-next.

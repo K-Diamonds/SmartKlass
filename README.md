@@ -71,6 +71,8 @@ pnpm dev            # web :3000 + api :4000
 | API | http://localhost:4000/api/v1 |
 | Health | http://localhost:4000/api/v1/health |
 
+**Production API:** [smart-klass-api.vercel.app](https://smart-klass-api.vercel.app/api/v1/health) — see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Vercel + GitHub CI/CD (same pattern as CreatorOS / Kortex).
+
 ### Seed accounts
 
 All seed users share the password **`password123`**:

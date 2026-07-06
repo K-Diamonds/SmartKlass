@@ -14,6 +14,8 @@ out
 .env
 .env.local
 .env.*.local
+apps/api/.env.vercel
+.github/env.production.local
 
 # Logs
 logs

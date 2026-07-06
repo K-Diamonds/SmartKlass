@@ -20,9 +20,13 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const webUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const corsOrigins = (process.env.CORS_ALLOW_ORIGINS ?? webUrl)
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
   app.enableCors({
-    origin: [webUrl, 'http://localhost:3000'],
+    origin: corsOrigins.length > 0 ? corsOrigins : [webUrl],
     credentials: true,
   });
 

@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_ENV: ${{ vars.NODE_ENV }}
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  JWT_SECRET: ${{ secrets.JWT_SECRET }}
+  JWT_EXPIRES_IN: ${{ vars.JWT_EXPIRES_IN }}
+  JWT_REFRESH_EXPIRES_IN: ${{ vars.JWT_REFRESH_EXPIRES_IN }}
+  API_URL: ${{ vars.API_URL }}
+  NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+  NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+  STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+  STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+  WORKER_ENABLED: ${{ vars.WORKER_ENABLED }}
+  CORS_ALLOW_ORIGINS: ${{ vars.CORS_ALLOW_ORIGINS }}
+  STAFF_EMAILS: ${{ vars.STAFF_EMAILS }}
+  ADMIN_ROLE_ASSIGNMENTS: ${{ vars.ADMIN_ROLE_ASSIGNMENTS }}
+
+jobs:
+  monorepo:
+    name: Lint, typecheck, test & build
+    runs-on: ubuntu-latest
+    env:
+      CI_LITE: "true"
+      JWT_SECRET: dev-only-ci-placeholder-must-be-32-chars-min
+      DATABASE_URL: mysql://ci:ci@127.0.0.1:3306/smartklass_ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate GitHub secrets/variables
+        run: bash scripts/check-github-env.sh
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  deploy-vercel:
+    name: Deploy API to Vercel
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [monorepo]
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Vercel deploy secrets
+        run: |
+          test -n "$VERCEL_ORG_ID" || (echo "Missing VERCEL_ORG_ID — run scripts/sync-github-env.sh" && exit 1)
+          test -n "$VERCEL_PROJECT_ID" || (echo "Missing VERCEL_PROJECT_ID" && exit 1)
+          test -n "${{ secrets.VERCEL_TOKEN }}" || (echo "Missing VERCEL_TOKEN" && exit 1)
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Point Vercel project at apps/api
+        run: |
+          curl -fsS -X PATCH \
+            "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}?teamId=${VERCEL_ORG_ID}" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"rootDirectory":"apps/api","framework":"nestjs"}'
+
+      - name: Pull Vercel project settings
+        run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+
+      - name: Deploy to production
+        id: deploy
+        run: |
+          url=$(vercel deploy --prod --token="${{ secrets.VERCEL_TOKEN }}")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Deployed to $url"
+
+      - name: Smoke test API health
+        run: |
+          url="https://smart-klass-api.vercel.app"
+          for attempt in 1 2 3 4 5 6; do
+            if curl -fsS "$url/api/v1/health" | grep -q '"status"'; then
+              echo "Health OK (attempt $attempt)"
+              exit 0
+            fi
+            echo "Waiting for production alias… attempt $attempt"
+            sleep 10
+          done
+          curl -fsS "$url/api/v1/health"
