@@ -2,5 +2,5 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nestjs",
   "installCommand": "cd ../.. && corepack enable && pnpm install --frozen-lockfile",
-  "buildCommand": "cd ../.. && pnpm db:generate && pnpm --filter @smartklass/shared build && pnpm --filter @smartklass/database build && pnpm --filter @smartklass/api build && node apps/api/scripts/vendor-workspace-packages.mjs"
+  "buildCommand": "cd ../.. && pnpm db:generate && pnpm --filter @smartklass/shared build && pnpm --filter @smartklass/database build && pnpm --filter @smartklass/api build && test -d packages/shared/dist && node apps/api/scripts/vendor-workspace-packages.mjs"
 }
