@@ -56,6 +56,9 @@ jobs:
       - name: Generate Prisma client
         run: pnpm db:generate
 
+      - name: Build workspace packages
+        run: pnpm --filter @smartklass/shared build && pnpm --filter @smartklass/database build
+
       - name: Lint
         run: pnpm lint
 
