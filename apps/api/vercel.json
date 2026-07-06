@@ -2,5 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nestjs",
   "installCommand": "cd ../.. && corepack enable && pnpm install --frozen-lockfile",
-  "buildCommand": "cd ../.. && pnpm db:generate && pnpm --filter @smartklass/shared build && pnpm --filter @smartklass/database build && pnpm --filter @smartklass/api build"
+  "buildCommand": "cd ../.. && pnpm db:generate && pnpm --filter @smartklass/shared build && pnpm --filter @smartklass/database build && pnpm --filter @smartklass/api build",
+  "functions": {
+    "src/main.ts": {
+      "maxDuration": 60,
+      "includeFiles": "{../../packages/shared/dist/**,../../packages/database/dist/**,../../node_modules/.pnpm/@prisma+client@*/node_modules/.prisma/**}"
+    }
+  }
 }
