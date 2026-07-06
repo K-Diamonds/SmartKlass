@@ -1,4 +1,4 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication, RequestMethod, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
@@ -29,7 +29,9 @@ describe('SmartKlass API (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication({ rawBody: true });
-    app.setGlobalPrefix('api/v1');
+    app.setGlobalPrefix('api/v1', {
+      exclude: [{ path: '', method: RequestMethod.GET }],
+    });
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -45,6 +47,24 @@ describe('SmartKlass API (e2e)', () => {
 
   afterEach(async () => {
     await app.close();
+  });
+
+  it('GET / returns API metadata', () => {
+    return request(app.getHttpServer())
+      .get('/')
+      .expect(200)
+      .expect(
+        (response: {
+          body: {
+            success: boolean;
+            data: { name: string; api: string; health: string };
+          };
+        }) => {
+          expect(response.body.success).toBe(true);
+          expect(response.body.data.name).toBe('SmartKlass API');
+          expect(response.body.data.api).toBe('/api/v1');
+        },
+      );
   });
 
   it('GET /api/v1/health', () => {

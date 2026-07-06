@@ -31,6 +31,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 import { UsersModule } from './modules/users/users.module';
 import { YoutubeModule } from './modules/youtube/youtube.module';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { YoutubeModule } from './modules/youtube/youtube.module';
     NotificationsModule,
     YoutubeModule,
   ],
+  controllers: [AppController],
   providers: [
     {
       provide: APP_GUARD,
