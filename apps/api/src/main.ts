@@ -15,9 +15,11 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api/v1');
 
-  app.useStaticAssets(join(process.cwd(), 'uploads'), {
-    prefix: '/uploads/',
-  });
+  if (!process.env.VERCEL) {
+    app.useStaticAssets(join(process.cwd(), 'uploads'), {
+      prefix: '/uploads/',
+    });
+  }
 
   const configService = app.get(ConfigService);
   const webUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
