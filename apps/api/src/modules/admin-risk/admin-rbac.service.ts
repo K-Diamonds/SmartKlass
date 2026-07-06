@@ -18,6 +18,11 @@ export class AdminRbacService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
+    if (process.env.VERCEL) {
+      this.logger.log('Skipping admin RBAC bootstrap on Vercel serverless');
+      return;
+    }
+
     await this.seedRolesAndPermissions();
     await this.bootstrapStaffFromEnv();
     await this.bootstrapRoleAssignmentsFromEnv();

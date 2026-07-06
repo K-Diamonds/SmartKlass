@@ -50,4 +50,7 @@ async function bootstrap() {
   await app.listen(port);
 }
 
-void bootstrap();
+void bootstrap().catch((error) => {
+  console.error('Nest bootstrap failed:', error);
+  throw error;
+});
