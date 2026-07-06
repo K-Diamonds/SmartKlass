@@ -32,6 +32,7 @@ import {
   SlugParamDto,
 } from '../../common/dto/pagination.dto';
 import { CoursesService } from './courses.service';
+import { CourseVersioningService } from './course-versioning.service';
 import {
   CourseDetailDto,
   CourseSummaryDto,
@@ -55,6 +56,7 @@ export class CoursesController {
   constructor(
     private readonly coursesService: CoursesService,
     private readonly accessService: AccessService,
+    private readonly courseVersioning: CourseVersioningService,
   ) {}
 
   @Public()
@@ -156,6 +158,45 @@ export class CoursesController {
     @Param() params: IdParamDto,
   ): Promise<CourseDetailDto> {
     return this.coursesService.publish(creatorProfileId, params.id);
+  }
+
+  @UseGuards(CreatorGuard)
+  @Post(':id/versions/draft')
+  createVersionDraft(
+    @CreatorProfileId() _creatorProfileId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param() params: IdParamDto,
+  ) {
+    return this.courseVersioning.createDraftFromLive(params.id, user.id);
+  }
+
+  @UseGuards(CreatorGuard)
+  @Get(':id/versions')
+  listVersions(
+    @CreatorProfileId() _creatorProfileId: string,
+    @Param() params: IdParamDto,
+  ) {
+    return this.courseVersioning.listVersions(params.id);
+  }
+
+  @UseGuards(CreatorGuard)
+  @Post(':id/versions/:versionId/publish')
+  publishVersion(
+    @CreatorProfileId() _creatorProfileId: string,
+    @Param('id') courseId: string,
+    @Param('versionId') versionId: string,
+  ) {
+    return this.courseVersioning.publishVersion(courseId, versionId);
+  }
+
+  @UseGuards(CreatorGuard)
+  @Post(':id/versions/:versionId/rollback')
+  rollbackVersion(
+    @CreatorProfileId() _creatorProfileId: string,
+    @Param('id') courseId: string,
+    @Param('versionId') versionId: string,
+  ) {
+    return this.courseVersioning.rollback(courseId, versionId);
   }
 
   @UseGuards(CreatorGuard)

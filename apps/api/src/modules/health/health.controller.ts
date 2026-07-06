@@ -12,4 +12,19 @@ export class HealthController {
   getHealth(): Promise<HealthCheckDto> {
     return this.healthService.check();
   }
+
+  @Get('live')
+  getLiveness() {
+    return this.healthService.liveness();
+  }
+
+  @Get('ready')
+  getReadiness() {
+    return this.healthService.readiness();
+  }
+
+  @Get('metrics')
+  getMetrics() {
+    return this.healthService.getMetrics();
+  }
 }

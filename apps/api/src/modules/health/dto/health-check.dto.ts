@@ -5,5 +5,7 @@ export class HealthCheckDto {
   version!: string;
   checks!: {
     database: 'ok' | 'down';
+    outboxPending?: number;
+    outboxFailed?: number;
   };
 }

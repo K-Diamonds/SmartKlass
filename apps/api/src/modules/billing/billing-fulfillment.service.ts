@@ -9,6 +9,9 @@ import {
   SubscriptionStatus,
 } from '@smartklass/database';
 import { PrismaService } from '../../common/database/prisma.service';
+import { getCorrelationId } from '../../common/observability/correlation.context';
+import { DOMAIN_EVENTS } from '../../common/domain-events/domain-event.types';
+import { OutboxService } from '../../common/outbox/outbox.service';
 import { mergeJsonMetadata } from './merge-metadata';
 import { MarketplaceAccountingService } from './marketplace-accounting.service';
 import Stripe from 'stripe';
@@ -51,6 +54,7 @@ export class BillingFulfillmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly marketplaceAccounting: MarketplaceAccountingService,
+    private readonly outbox: OutboxService,
   ) {}
 
   async fulfillLifetimePurchase(input: FulfillLifetimeInput) {
@@ -181,8 +185,10 @@ export class BillingFulfillmentService {
         select: { creatorProfileId: true },
       });
 
+      let creatorTransaction = null;
+
       if (course && paymentId) {
-        await this.marketplaceAccounting.recordSaleFromPaymentMetadata(tx, {
+        creatorTransaction = await this.marketplaceAccounting.recordSaleFromPaymentMetadata(tx, {
           paymentId,
           creatorProfileId: course.creatorProfileId,
           courseId: input.courseId,
@@ -197,6 +203,19 @@ export class BillingFulfillmentService {
           stripeChargeId: input.stripeChargeId,
         });
       }
+
+      await this.emitPaymentFlowEvents(tx, {
+        paymentId,
+        userId: input.userId,
+        courseId: input.courseId,
+        accessPlanId: input.accessPlanId,
+        purchaseId: purchase.id,
+        amountCents: input.amountCents,
+        currency: input.currency,
+        creatorProfileId: course?.creatorProfileId,
+        creatorTransactionId: creatorTransaction?.id,
+        creatorTransactionGross: creatorTransaction?.grossAmountCents,
+      });
 
       this.logger.log(
         `Granted lifetime access for user ${input.userId} on course ${input.courseId}`,
@@ -315,6 +334,16 @@ export class BillingFulfillmentService {
         currentPeriodStart: input.currentPeriodStart,
         currentPeriodEnd: input.currentPeriodEnd,
         status: input.status,
+      });
+
+      await this.emitPaymentFlowEvents(tx, {
+        userId: input.userId,
+        courseId: input.courseId,
+        accessPlanId: input.accessPlanId,
+        subscriptionId: subscription.id,
+        amountCents: input.amountCents,
+        currency: input.currency,
+        eventType: DOMAIN_EVENTS.SUBSCRIPTION_RENEWED,
       });
 
       await this.createSubscriptionNotification(tx, {
@@ -766,5 +795,72 @@ export class BillingFulfillmentService {
         },
       },
     });
+  }
+
+  private async emitPaymentFlowEvents(
+    tx: Prisma.TransactionClient,
+    input: {
+      userId: string;
+      courseId: string;
+      accessPlanId: string;
+      paymentId?: string;
+      purchaseId?: string;
+      subscriptionId?: string;
+      amountCents?: number;
+      currency?: string;
+      creatorProfileId?: string;
+      creatorTransactionId?: string;
+      creatorTransactionGross?: number;
+      eventType?: string;
+    },
+  ) {
+    const correlationId = getCorrelationId();
+    const aggregateId = input.paymentId ?? input.purchaseId ?? input.subscriptionId ?? input.userId;
+
+    await this.outbox.appendMany(tx, [
+      {
+        eventType: DOMAIN_EVENTS.PAYMENT_COMPLETED,
+        aggregateType: 'payment',
+        aggregateId,
+        correlationId,
+        payload: {
+          userId: input.userId,
+          courseId: input.courseId,
+          accessPlanId: input.accessPlanId,
+          paymentId: input.paymentId,
+          purchaseId: input.purchaseId,
+          subscriptionId: input.subscriptionId,
+          amountCents: input.amountCents,
+          currency: input.currency,
+        },
+      },
+      {
+        eventType: DOMAIN_EVENTS.COURSE_ACCESS_GRANTED,
+        aggregateType: 'course_access',
+        aggregateId: `${input.userId}:${input.courseId}`,
+        correlationId,
+        payload: {
+          userId: input.userId,
+          courseId: input.courseId,
+          accessPlanId: input.accessPlanId,
+        },
+      },
+      ...(input.creatorTransactionId
+        ? [
+            {
+              eventType: DOMAIN_EVENTS.CREATOR_TRANSACTION_CREATED,
+              aggregateType: 'creator_transaction',
+              aggregateId: input.creatorTransactionId,
+              correlationId,
+              payload: {
+                transactionId: input.creatorTransactionId,
+                creatorProfileId: input.creatorProfileId,
+                grossAmountCents: input.creatorTransactionGross,
+                currency: input.currency,
+              },
+            },
+          ]
+        : []),
+    ]);
   }
 }

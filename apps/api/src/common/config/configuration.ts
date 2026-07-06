@@ -40,4 +40,10 @@ export default () => ({
     windowMs: parseInt(process.env.ADMIN_RATE_LIMIT_WINDOW_MS ?? '60000', 10),
   },
   redisUrl: process.env.REDIS_URL,
+  worker: {
+    enabled: process.env.WORKER_ENABLED ?? 'true',
+    outboxPollMs: parseInt(process.env.OUTBOX_POLL_MS ?? '5000', 10),
+    dailyJobPollMs: parseInt(process.env.DAILY_JOB_POLL_MS ?? '60000', 10),
+    dailyJobHourUtc: parseInt(process.env.DAILY_JOB_HOUR_UTC ?? '6', 10),
+  },
 });

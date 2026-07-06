@@ -4,9 +4,15 @@ import { ConfigModule } from '@nestjs/config';
 import { JwtAuthGuard } from './common/auth';
 import configuration from './common/config/configuration';
 import { validateEnvironment } from './common/config/validate-environment';
+import { DomainEventsModule } from './common/domain-events/domain-events.module';
+import { JobsModule } from './common/jobs/jobs.module';
+import { OutboxModule } from './common/outbox/outbox.module';
+import { ObservabilityModule } from './common/observability/observability.module';
+import { CorrelationIdMiddleware } from './common/observability/correlation-id.middleware';
 import { PrismaModule } from './common/database/prisma.module';
 import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
 import { AccessPlansModule } from './modules/access-plans/access-plans.module';
+import { AdminQueriesModule } from './modules/admin-queries/admin-queries.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { CommentsModule } from './modules/comments/comments.module';
@@ -35,6 +41,10 @@ import { YoutubeModule } from './modules/youtube/youtube.module';
       validate: validateEnvironment,
     }),
     PrismaModule,
+    DomainEventsModule,
+    ObservabilityModule,
+    OutboxModule,
+    JobsModule,
     HealthModule,
     AuthModule,
     UsersModule,
@@ -45,6 +55,7 @@ import { YoutubeModule } from './modules/youtube/youtube.module';
     AccessPlansModule,
     BillingModule,
     AdminRiskModule,
+    AdminQueriesModule,
     PurchasesModule,
     SubscriptionsModule,
     PaymentsModule,
@@ -64,6 +75,8 @@ import { YoutubeModule } from './modules/youtube/youtube.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(RequestLoggingMiddleware).forRoutes('*');
+    consumer
+      .apply(CorrelationIdMiddleware, RequestLoggingMiddleware)
+      .forRoutes('*');
   }
 }

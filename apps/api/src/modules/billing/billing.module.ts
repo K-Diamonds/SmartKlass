@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { OutboxModule } from '../../common/outbox/outbox.module';
 import { BillingFulfillmentService } from './billing-fulfillment.service';
 import {
   BillingController,
@@ -15,7 +16,7 @@ import { StripeClientService } from './stripe-client.service';
 import { StripeWebhookService } from './stripe-webhook.service';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, OutboxModule],
   controllers: [CheckoutController, BillingController, StripeWebhookController],
   providers: [
     StripeClientService,
