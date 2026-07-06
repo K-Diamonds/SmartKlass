@@ -1,16 +1,43 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   CreatorPayoutStatus,
   CreatorTransactionStatus,
   PaymentStatus,
+  Prisma,
   RefundStatus,
 } from '@smartklass/database';
 import { PrismaService } from '../../common/database/prisma.service';
+import { PaginatedResultDto } from '../../common/dto/pagination.dto';
 import { AdminDashboardMetricsDto } from './dto/admin-risk.dto';
+import { AdminListQueryDto } from './dto/admin-list.dto';
 
 @Injectable()
 export class AdminDashboardService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private paginate<T>(
+    page: number,
+    limit: number,
+    total: number,
+    items: T[],
+  ): PaginatedResultDto<T> {
+    return {
+      items,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
+  private dateRange(query: AdminListQueryDto) {
+    return {
+      ...(query.from ? { gte: new Date(query.from) } : {}),
+      ...(query.to ? { lte: new Date(query.to) } : {}),
+    };
+  }
 
   async getMetrics(currency = 'USD'): Promise<AdminDashboardMetricsDto> {
     const [
@@ -195,70 +222,198 @@ export class AdminDashboardService {
     });
   }
 
-  async listRefunds(limit = 50) {
-    return this.prisma.refund.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      include: {
-        creatorTransaction: {
-          select: {
-            id: true,
-            creatorProfile: { select: { id: true, displayName: true, slug: true } },
-            course: { select: { id: true, title: true } },
+  async listRefunds(query: AdminListQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const skip = (page - 1) * limit;
+    const range = this.dateRange(query);
+
+    const where: Prisma.RefundWhereInput = {
+      ...(query.status ? { status: query.status as RefundStatus } : {}),
+      ...(Object.keys(range).length > 0 ? { createdAt: range } : {}),
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.refund.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          creatorTransaction: {
+            select: {
+              id: true,
+              creatorProfile: { select: { id: true, displayName: true, slug: true } },
+              course: { select: { id: true, title: true } },
+            },
+          },
+          payment: {
+            select: { id: true, user: { select: { email: true } } },
           },
         },
+      }),
+      this.prisma.refund.count({ where }),
+    ]);
+
+    return this.paginate(page, limit, total, items);
+  }
+
+  async listDisputes(query: AdminListQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const skip = (page - 1) * limit;
+    const range = this.dateRange(query);
+
+    const where: Prisma.DisputeWhereInput = {
+      ...(query.status ? { status: query.status as never } : {}),
+      ...(Object.keys(range).length > 0 ? { createdAt: range } : {}),
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.dispute.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          creatorTransaction: {
+            select: {
+              id: true,
+              creatorProfile: { select: { id: true, displayName: true, slug: true } },
+              course: { select: { id: true, title: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.dispute.count({ where }),
+    ]);
+
+    return this.paginate(page, limit, total, items);
+  }
+
+  async listPayouts(query: AdminListQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const skip = (page - 1) * limit;
+    const range = this.dateRange(query);
+
+    const where: Prisma.CreatorPayoutWhereInput = {
+      ...(query.status ? { status: query.status as CreatorPayoutStatus } : {}),
+      ...(query.creatorProfileId
+        ? { creatorProfileId: query.creatorProfileId }
+        : {}),
+      ...(Object.keys(range).length > 0 ? { createdAt: range } : {}),
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.creatorPayout.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          creatorProfile: { select: { id: true, displayName: true, slug: true } },
+        },
+      }),
+      this.prisma.creatorPayout.count({ where }),
+    ]);
+
+    return this.paginate(page, limit, total, items);
+  }
+
+  async listCreatorTransactions(query: AdminListQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const skip = (page - 1) * limit;
+    const range = this.dateRange(query);
+
+    const where: Prisma.CreatorTransactionWhereInput = {
+      ...(query.status ? { status: query.status as CreatorTransactionStatus } : {}),
+      ...(query.creatorProfileId
+        ? { creatorProfileId: query.creatorProfileId }
+        : {}),
+      ...(Object.keys(range).length > 0 ? { createdAt: range } : {}),
+      ...(query.search
+        ? {
+            OR: [
+              { id: { contains: query.search } },
+              { stripeChargeId: { contains: query.search } },
+              { stripePaymentIntentId: { contains: query.search } },
+            ],
+          }
+        : {}),
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.creatorTransaction.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          creatorProfile: { select: { id: true, displayName: true, slug: true } },
+          course: { select: { id: true, title: true } },
+          payment: { select: { id: true, status: true, user: { select: { email: true } } } },
+        },
+      }),
+      this.prisma.creatorTransaction.count({ where }),
+    ]);
+
+    return this.paginate(page, limit, total, items);
+  }
+
+  async getCreatorTransactionById(id: string) {
+    const transaction = await this.prisma.creatorTransaction.findUnique({
+      where: { id },
+      include: {
+        creatorProfile: true,
+        course: true,
         payment: {
-          select: { id: true, user: { select: { email: true } } },
-        },
-      },
-    });
-  }
-
-  async listDisputes(limit = 50) {
-    return this.prisma.dispute.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      include: {
-        creatorTransaction: {
-          select: {
-            id: true,
-            creatorProfile: { select: { id: true, displayName: true, slug: true } },
-            course: { select: { id: true, title: true } },
+          include: {
+            user: { select: { id: true, email: true, profile: true } },
           },
         },
+        refunds: true,
+        disputes: true,
       },
     });
+    if (!transaction) {
+      throw new NotFoundException('Transaction not found.');
+    }
+    return transaction;
   }
 
-  async listPayouts(limit = 50, status?: string) {
-    return this.prisma.creatorPayout.findMany({
-      where: status ? { status: status as never } : undefined,
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      include: {
-        creatorProfile: { select: { id: true, displayName: true, slug: true } },
-      },
-    });
-  }
+  async listCreators(query: AdminListQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const skip = (page - 1) * limit;
 
-  async listCreatorTransactions(limit = 50) {
-    return this.prisma.creatorTransaction.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      include: {
-        creatorProfile: { select: { id: true, displayName: true, slug: true } },
-        course: { select: { id: true, title: true } },
-        payment: { select: { id: true, status: true } },
-      },
-    });
-  }
+    const where: Prisma.CreatorProfileWhereInput = {
+      deletedAt: null,
+      ...(query.search
+        ? {
+            OR: [
+              { displayName: { contains: query.search } },
+              { slug: { contains: query.search } },
+            ],
+          }
+        : {}),
+      ...(query.status
+        ? { riskProfile: { trustLevel: query.status as never } }
+        : {}),
+    };
 
-  async listCreators(limit = 50) {
-    return this.prisma.creatorProfile.findMany({
-      where: { deletedAt: null },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      include: { riskProfile: true },
-    });
+    const [items, total] = await Promise.all([
+      this.prisma.creatorProfile.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: { riskProfile: true },
+      }),
+      this.prisma.creatorProfile.count({ where }),
+    ]);
+
+    return this.paginate(page, limit, total, items);
   }
 }

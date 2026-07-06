@@ -3,22 +3,23 @@ import {
   ExecutionContext,
   HttpException,
   HttpStatus,
+  Inject,
   Injectable,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-
-type RateBucket = {
-  count: number;
-  resetAt: number;
-};
+import {
+  RATE_LIMIT_STORE,
+  type RateLimitStore,
+} from '../rate-limit/rate-limit.store';
 
 @Injectable()
 export class AdminRateLimitGuard implements CanActivate {
-  private readonly buckets = new Map<string, RateBucket>();
+  constructor(
+    private readonly configService: ConfigService,
+    @Inject(RATE_LIMIT_STORE) private readonly store: RateLimitStore,
+  ) {}
 
-  constructor(private readonly configService: ConfigService) {}
-
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<{
       ip?: string;
       headers?: Record<string, string | string[] | undefined>;
@@ -37,22 +38,16 @@ export class AdminRateLimitGuard implements CanActivate {
       : forwarded?.split(',')[0]?.trim();
     const ip = forwardedIp ?? request.ip ?? 'unknown';
     const key = `${actorId}:${ip}`;
-    const now = Date.now();
-    const bucket = this.buckets.get(key);
 
-    if (!bucket || bucket.resetAt <= now) {
-      this.buckets.set(key, { count: 1, resetAt: now + windowMs });
-      return true;
-    }
+    const result = await this.store.consume(key, maxRequests, windowMs);
 
-    if (bucket.count >= maxRequests) {
+    if (!result.allowed) {
       throw new HttpException(
         'Admin rate limit exceeded. Try again shortly.',
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
 
-    bucket.count += 1;
     return true;
   }
 }

@@ -1,11 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AdminActionModal } from '@/components/admin/AdminActionModal';
+import { AdminListToolbar } from '@/components/admin/AdminListToolbar';
 import { AdminPageHeader, AdminPanel } from '@/components/admin/AdminPageHeader';
 import { DataTable } from '@/components/admin/DataTable';
 import { StatusBadge, payoutStatusTone } from '@/components/admin/StatusBadge';
+import {
+  downloadCsv,
+  rowsToCsv,
+} from '@/components/admin/admin-list-utils';
 import { formatAdminCents, formatAdminDate } from '@/components/admin/admin-utils';
 import {
   listDisputes,
@@ -17,19 +22,55 @@ import { LoadingState } from '@/components/ui/LoadingState';
 export function AdminDisputesPage() {
   const [rows, setRows] = useState<AdminDispute[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [status, setStatus] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [target, setTarget] = useState<AdminDispute | null>(null);
   const [evidenceNotes, setEvidenceNotes] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await listDisputes({
+        page,
+        limit: 20,
+        status: status || undefined,
+        from: from || undefined,
+        to: to || undefined,
+      });
+      setRows(result.items);
+      setTotalPages(result.meta.totalPages);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, status, from, to]);
+
   useEffect(() => {
-    void listDisputes(100)
-      .then(setRows)
-      .finally(() => setLoading(false));
-  }, []);
+    void load();
+  }, [load]);
 
-  if (loading) return <LoadingState variant="page" label="Loading disputes…" />;
+  const open = rows.filter((r) => !r.closedAt).length;
 
-  const open = rows.filter((r) => !r.closedAt);
+  const exportCsv = () => {
+    const csv = rowsToCsv(
+      ['ID', 'Amount', 'Status', 'Creator', 'Opened'],
+      rows.map((r) => [
+        r.id,
+        r.amountCents,
+        r.status,
+        r.creatorTransaction?.creatorProfile.displayName ?? '',
+        r.createdAt,
+      ]),
+    );
+    downloadCsv('disputes.csv', csv);
+  };
+
+  if (loading && rows.length === 0) {
+    return <LoadingState variant="page" label="Loading disputes…" />;
+  }
 
   return (
     <div className="space-y-8">
@@ -39,9 +80,37 @@ export function AdminDisputesPage() {
         description="Chargeback evidence workflow and assignment tracking."
         actions={
           <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs text-amber-300">
-            {open.length} open
+            {open} open on this page
           </span>
         }
+      />
+
+      <AdminListToolbar
+        status={status}
+        onStatusChange={(value) => {
+          setPage(1);
+          setStatus(value);
+        }}
+        statusOptions={[
+          { value: 'NEEDS_RESPONSE', label: 'Needs response' },
+          { value: 'UNDER_REVIEW', label: 'Under review' },
+          { value: 'WON', label: 'Won' },
+          { value: 'LOST', label: 'Lost' },
+        ]}
+        from={from}
+        to={to}
+        onFromChange={(value) => {
+          setPage(1);
+          setFrom(value);
+        }}
+        onToChange={(value) => {
+          setPage(1);
+          setTo(value);
+        }}
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        onExportCsv={exportCsv}
       />
 
       <AdminPanel noPadding>
@@ -127,7 +196,7 @@ export function AdminDisputesPage() {
                 reason,
               });
               setTarget(null);
-              setRows(await listDisputes(100));
+              await load();
             } finally {
               setActionLoading(false);
             }

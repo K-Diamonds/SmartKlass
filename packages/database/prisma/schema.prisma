@@ -138,12 +138,30 @@ enum AdminAuditTargetType {
   STRIPE_EVENT
   RECONCILIATION_REPORT
   FEATURE_FLAG
+  REFUND_REQUEST
 }
 
 enum ReconciliationReportStatus {
   PENDING
   RUNNING
   COMPLETED
+  FAILED
+}
+
+enum AdminRoleKey {
+  SUPER_ADMIN
+  RISK_ANALYST
+  FINANCE
+  SUPPORT
+  READ_ONLY
+}
+
+enum RefundRequestStatus {
+  REQUESTED
+  APPROVED
+  DENIED
+  EXECUTING
+  EXECUTED
   FAILED
 }
 
@@ -200,6 +218,11 @@ model User {
   favorites     Favorite[]
   notifications Notification[]
   adminAuditLogs AdminAuditLog[]
+  adminUserRoles   AdminUserRole[]
+  refundRequestsRequested RefundRequest[] @relation("RefundRequestRequester")
+  refundRequestsApproved  RefundRequest[] @relation("RefundRequestApprover")
+  refundRequestsDenied    RefundRequest[] @relation("RefundRequestDenier")
+  refundRequestsExecuted  RefundRequest[] @relation("RefundRequestExecutor")
 
   @@index([status])
   @@index([deletedAt])
@@ -459,6 +482,7 @@ model Payment {
   purchase UserPurchase?
   creatorTransaction CreatorTransaction?
   refunds            Refund[]
+  refundRequests     RefundRequest[]
   disputes           Dispute[]
 
   @@index([userId])
@@ -590,6 +614,7 @@ model CreatorTransaction {
   payment        Payment?       @relation(fields: [paymentId], references: [id], onDelete: SetNull)
   course         Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
   refunds        Refund[]
+  refundRequests RefundRequest[]
   disputes       Dispute[]
 
   @@index([creatorProfileId, createdAt])
@@ -617,11 +642,48 @@ model Refund {
 
   creatorTransaction CreatorTransaction? @relation(fields: [creatorTransactionId], references: [id], onDelete: SetNull)
   payment            Payment?            @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  refundRequest      RefundRequest?
 
   @@index([paymentId])
   @@index([creatorTransactionId])
   @@index([stripeChargeId])
   @@map("refunds")
+}
+
+model RefundRequest {
+  id                   String              @id @default(cuid())
+  paymentId            String              @map("payment_id")
+  creatorTransactionId String?             @map("creator_transaction_id")
+  requestedByUserId    String              @map("requested_by_user_id")
+  amountCents          Int                 @map("amount_cents")
+  currency             String              @default("USD") @db.VarChar(3)
+  reason               String              @db.Text
+  status               RefundRequestStatus @default(REQUESTED)
+  approvedAt           DateTime?           @map("approved_at")
+  approvedByUserId     String?             @map("approved_by_user_id")
+  deniedAt             DateTime?           @map("denied_at")
+  deniedByUserId       String?             @map("denied_by_user_id")
+  denialReason         String?             @map("denial_reason") @db.Text
+  executedAt           DateTime?           @map("executed_at")
+  executedByUserId     String?             @map("executed_by_user_id")
+  executionError       String?             @map("execution_error") @db.Text
+  stripeRefundId       String?             @unique @map("stripe_refund_id") @db.VarChar(191)
+  refundId             String?             @unique @map("refund_id")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+
+  payment            Payment             @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  creatorTransaction CreatorTransaction? @relation(fields: [creatorTransactionId], references: [id], onDelete: SetNull)
+  requester          User                @relation("RefundRequestRequester", fields: [requestedByUserId], references: [id], onDelete: Cascade)
+  approver           User?               @relation("RefundRequestApprover", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  denier             User?               @relation("RefundRequestDenier", fields: [deniedByUserId], references: [id], onDelete: SetNull)
+  executor           User?               @relation("RefundRequestExecutor", fields: [executedByUserId], references: [id], onDelete: SetNull)
+  refund             Refund?             @relation(fields: [refundId], references: [id], onDelete: SetNull)
+
+  @@index([paymentId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("refund_requests")
 }
 
 model Dispute {
@@ -771,6 +833,58 @@ model FraudRule {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("fraud_rules")
+}
+
+model AdminRole {
+  id          String       @id @default(cuid())
+  key         AdminRoleKey @unique
+  name        String       @db.VarChar(100)
+  description String?      @db.VarChar(500)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  userRoles       AdminUserRole[]
+  rolePermissions AdminRolePermission[]
+
+  @@map("admin_roles")
+}
+
+model AdminPermission {
+  id          String   @id @default(cuid())
+  key         String   @unique @db.VarChar(100)
+  description String?  @db.VarChar(500)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  rolePermissions AdminRolePermission[]
+
+  @@map("admin_permissions")
+}
+
+model AdminUserRole {
+  id               String   @id @default(cuid())
+  userId           String   @map("user_id")
+  roleId           String   @map("role_id")
+  assignedByUserId String?  @map("assigned_by_user_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role AdminRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@map("admin_user_roles")
+}
+
+model AdminRolePermission {
+  id           String @id @default(cuid())
+  roleId       String @map("role_id")
+  permissionId String @map("permission_id")
+
+  role       AdminRole       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission AdminPermission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("admin_role_permissions")
 }
 
 // =============================================================================

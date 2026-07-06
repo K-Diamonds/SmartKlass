@@ -8,6 +8,7 @@ import { PrismaService } from '../../common/database/prisma.service';
 import { StripeClientService } from '../billing/stripe-client.service';
 import { AdminAuditService, auditSnapshot } from './admin-audit.service';
 import { ReconciliationReportDto } from './dto/admin-risk.dto';
+import { paginateStripeAuto } from './stripe-pagination.util';
 
 type ReconciliationSummary = {
   localPaymentsCount: number;
@@ -20,6 +21,17 @@ type ReconciliationSummary = {
   stripeApplicationFeesCents: number;
   stripeTransfersCents: number;
   stripePayoutsCents: number;
+};
+
+type LineDiscrepancy = {
+  code: string;
+  objectType: 'payment' | 'charge' | 'creator_transaction' | 'transfer' | 'platform_fee' | 'payout';
+  localId?: string;
+  stripeId?: string;
+  message: string;
+  localCents?: number;
+  stripeCents?: number;
+  deltaCents?: number;
 };
 
 @Injectable()
@@ -95,8 +107,10 @@ export class StripeReconciliationService {
     });
 
     try {
-      const summary = await this.buildSummary(report.periodStart, report.periodEnd);
-      const discrepancies = this.findDiscrepancies(summary);
+      const built = await this.buildReconciliation(
+        report.periodStart,
+        report.periodEnd,
+      );
 
       const localBalance = await this.prisma.creatorTransaction.aggregate({
         where: {
@@ -119,8 +133,8 @@ export class StripeReconciliationService {
         where: { id: reportId },
         data: {
           status: ReconciliationReportStatus.COMPLETED,
-          summary,
-          discrepancies,
+          summary: built.summary,
+          discrepancies: built.discrepancies,
           localBalanceCents: localBalance._sum.creatorNetCents ?? 0,
           stripeBalanceCents,
           completedAt: new Date(),
@@ -142,17 +156,15 @@ export class StripeReconciliationService {
     }
   }
 
-  private async buildSummary(
-    periodStart: Date,
-    periodEnd: Date,
-  ): Promise<ReconciliationSummary> {
-    const [payments, transactions] = await Promise.all([
+  private async buildReconciliation(periodStart: Date, periodEnd: Date) {
+    const [payments, transactions, payouts] = await Promise.all([
       this.prisma.payment.findMany({
         where: {
           status: PaymentStatus.SUCCEEDED,
           createdAt: { gte: periodStart, lte: periodEnd },
         },
         select: {
+          id: true,
           amountCents: true,
           stripePaymentIntentId: true,
           stripeChargeId: true,
@@ -163,109 +175,268 @@ export class StripeReconciliationService {
           createdAt: { gte: periodStart, lte: periodEnd },
         },
         select: {
+          id: true,
           creatorNetCents: true,
           platformFeeCents: true,
           stripeChargeId: true,
+          stripePaymentIntentId: true,
+        },
+      }),
+      this.prisma.creatorPayout.findMany({
+        where: {
+          createdAt: { gte: periodStart, lte: periodEnd },
+        },
+        select: {
+          id: true,
+          amountCents: true,
+          stripePayoutId: true,
+          status: true,
         },
       }),
     ]);
 
-    let stripeChargesCount = 0;
-    let stripeChargesCents = 0;
-    let stripeApplicationFeesCents = 0;
-    let stripeTransfersCents = 0;
-    let stripePayoutsCents = 0;
+    const created = {
+      gte: Math.floor(periodStart.getTime() / 1000),
+      lte: Math.floor(periodEnd.getTime() / 1000),
+    };
+
+    let stripeCharges: Array<{
+      id: string;
+      amount: number;
+      application_fee_amount: number | null;
+      payment_intent: string | { id: string } | null;
+    }> = [];
+    let stripeTransfers: Array<{
+      id: string;
+      amount: number;
+      source_transaction: string | { id: string } | null;
+    }> = [];
+    let stripePayouts: Array<{ id: string; amount: number }> = [];
 
     if (this.stripeClient.isConfigured()) {
       const stripe = this.stripeClient.getClient();
-      const created = {
-        gte: Math.floor(periodStart.getTime() / 1000),
-        lte: Math.floor(periodEnd.getTime() / 1000),
-      };
-
-      const charges = await stripe.charges.list({ limit: 100, created });
-      stripeChargesCount = charges.data.length;
-      stripeChargesCents = charges.data.reduce(
-        (sum, charge) => sum + charge.amount,
-        0,
-      );
-      stripeApplicationFeesCents = charges.data.reduce(
-        (sum, charge) => sum + (charge.application_fee_amount ?? 0),
-        0,
-      );
-
-      const transfers = await stripe.transfers.list({ limit: 100, created });
-      stripeTransfersCents = transfers.data.reduce(
-        (sum, transfer) => sum + transfer.amount,
-        0,
-      );
-
-      const payouts = await stripe.payouts.list({ limit: 100, created });
-      stripePayoutsCents = payouts.data.reduce(
-        (sum, payout) => sum + payout.amount,
-        0,
-      );
+      [stripeCharges, stripeTransfers, stripePayouts] = await Promise.all([
+        paginateStripeAuto((params) =>
+          stripe.charges.list({ ...params, created }),
+        ),
+        paginateStripeAuto((params) =>
+          stripe.transfers.list({ ...params, created }),
+        ),
+        paginateStripeAuto((params) =>
+          stripe.payouts.list({ ...params, created }),
+        ),
+      ]);
     }
 
-    return {
+    const summary: ReconciliationSummary = {
       localPaymentsCount: payments.length,
-      localPaymentsCents: payments.reduce(
-        (sum, payment) => sum + payment.amountCents,
-        0,
-      ),
+      localPaymentsCents: payments.reduce((s, p) => s + p.amountCents, 0),
       localCreatorTransactionsCount: transactions.length,
-      localCreatorNetCents: transactions.reduce(
-        (sum, row) => sum + row.creatorNetCents,
+      localCreatorNetCents: transactions.reduce((s, t) => s + t.creatorNetCents, 0),
+      localPlatformFeeCents: transactions.reduce((s, t) => s + t.platformFeeCents, 0),
+      stripeChargesCount: stripeCharges.length,
+      stripeChargesCents: stripeCharges.reduce((s, c) => s + c.amount, 0),
+      stripeApplicationFeesCents: stripeCharges.reduce(
+        (s, c) => s + (c.application_fee_amount ?? 0),
         0,
       ),
-      localPlatformFeeCents: transactions.reduce(
-        (sum, row) => sum + row.platformFeeCents,
-        0,
-      ),
-      stripeChargesCount,
-      stripeChargesCents,
-      stripeApplicationFeesCents,
-      stripeTransfersCents,
-      stripePayoutsCents,
+      stripeTransfersCents: stripeTransfers.reduce((s, t) => s + t.amount, 0),
+      stripePayoutsCents: stripePayouts.reduce((s, p) => s + p.amount, 0),
+    };
+
+    const lineItems = this.findLineDiscrepancies({
+      payments,
+      transactions,
+      payouts,
+      stripeCharges,
+      stripeTransfers,
+      stripePayouts,
+    });
+
+    const totals = this.findTotalDiscrepancies(summary);
+
+    return {
+      summary,
+      discrepancies: {
+        items: [...totals, ...lineItems],
+        lineItemCount: lineItems.length,
+        generatedAt: new Date().toISOString(),
+      },
     };
   }
 
-  private findDiscrepancies(summary: ReconciliationSummary) {
-    const items: Array<{ code: string; message: string; deltaCents?: number }> =
-      [];
-
-    const paymentDelta =
-      summary.localPaymentsCents - summary.stripeChargesCents;
+  private findTotalDiscrepancies(summary: ReconciliationSummary): LineDiscrepancy[] {
+    const items: LineDiscrepancy[] = [];
+    const paymentDelta = summary.localPaymentsCents - summary.stripeChargesCents;
     if (paymentDelta !== 0) {
       items.push({
-        code: 'payments_vs_charges',
-        message: 'Local succeeded payments do not match Stripe charges total.',
+        code: 'payments_vs_charges_total',
+        objectType: 'payment',
+        message: 'Aggregate local payments do not match Stripe charges.',
+        localCents: summary.localPaymentsCents,
+        stripeCents: summary.stripeChargesCents,
         deltaCents: paymentDelta,
       });
     }
-
     const feeDelta =
       summary.localPlatformFeeCents - summary.stripeApplicationFeesCents;
     if (feeDelta !== 0) {
       items.push({
-        code: 'platform_fees_vs_application_fees',
-        message:
-          'Ledger platform fees do not match Stripe application fees total.',
+        code: 'platform_fees_total',
+        objectType: 'platform_fee',
+        message: 'Aggregate platform fees do not match Stripe application fees.',
+        localCents: summary.localPlatformFeeCents,
+        stripeCents: summary.stripeApplicationFeesCents,
         deltaCents: feeDelta,
       });
     }
+    return items;
+  }
 
-    if (
-      summary.localCreatorTransactionsCount > 0 &&
-      summary.localPaymentsCount === 0
-    ) {
-      items.push({
-        code: 'orphan_creator_transactions',
-        message: 'Creator transactions exist without matching local payments.',
-      });
+  private findLineDiscrepancies(input: {
+    payments: Array<{
+      id: string;
+      amountCents: number;
+      stripeChargeId: string | null;
+      stripePaymentIntentId: string | null;
+    }>;
+    transactions: Array<{
+      id: string;
+      creatorNetCents: number;
+      platformFeeCents: number;
+      stripeChargeId: string | null;
+      stripePaymentIntentId: string | null;
+    }>;
+    payouts: Array<{
+      id: string;
+      amountCents: number;
+      stripePayoutId: string;
+    }>;
+    stripeCharges: Array<{
+      id: string;
+      amount: number;
+      application_fee_amount: number | null;
+      payment_intent: string | { id: string } | null;
+    }>;
+    stripeTransfers: Array<{
+      id: string;
+      amount: number;
+      source_transaction: string | { id: string } | null;
+    }>;
+    stripePayouts: Array<{ id: string; amount: number }>;
+  }): LineDiscrepancy[] {
+    const items: LineDiscrepancy[] = [];
+
+    const chargeById = new Map(input.stripeCharges.map((c) => [c.id, c]));
+    const matchedChargeIds = new Set<string>();
+
+    for (const payment of input.payments) {
+      const chargeId = payment.stripeChargeId;
+      if (!chargeId) {
+        items.push({
+          code: 'payment_missing_charge_id',
+          objectType: 'payment',
+          localId: payment.id,
+          message: 'Local payment has no stripeChargeId.',
+          localCents: payment.amountCents,
+        });
+        continue;
+      }
+
+      const charge = chargeById.get(chargeId);
+      if (!charge) {
+        items.push({
+          code: 'payment_charge_not_in_stripe',
+          objectType: 'payment',
+          localId: payment.id,
+          stripeId: chargeId,
+          message: 'Local payment references Stripe charge not found in period.',
+          localCents: payment.amountCents,
+        });
+        continue;
+      }
+
+      matchedChargeIds.add(chargeId);
+      if (payment.amountCents !== charge.amount) {
+        items.push({
+          code: 'payment_amount_mismatch',
+          objectType: 'payment',
+          localId: payment.id,
+          stripeId: chargeId,
+          message: 'Payment amount does not match Stripe charge.',
+          localCents: payment.amountCents,
+          stripeCents: charge.amount,
+          deltaCents: payment.amountCents - charge.amount,
+        });
+      }
     }
 
-    return { items, generatedAt: new Date().toISOString() };
+    for (const charge of input.stripeCharges) {
+      if (!matchedChargeIds.has(charge.id)) {
+        items.push({
+          code: 'orphan_stripe_charge',
+          objectType: 'charge',
+          stripeId: charge.id,
+          message: 'Stripe charge has no matching local payment.',
+          stripeCents: charge.amount,
+        });
+      }
+    }
+
+    for (const tx of input.transactions) {
+      if (!tx.stripeChargeId) {
+        items.push({
+          code: 'transaction_missing_charge',
+          objectType: 'creator_transaction',
+          localId: tx.id,
+          message: 'Creator transaction missing stripeChargeId.',
+          localCents: tx.creatorNetCents,
+        });
+        continue;
+      }
+      const charge = chargeById.get(tx.stripeChargeId);
+      if (charge && tx.platformFeeCents !== (charge.application_fee_amount ?? 0)) {
+        items.push({
+          code: 'transaction_fee_mismatch',
+          objectType: 'creator_transaction',
+          localId: tx.id,
+          stripeId: tx.stripeChargeId,
+          message: 'Platform fee on transaction does not match charge application fee.',
+          localCents: tx.platformFeeCents,
+          stripeCents: charge.application_fee_amount ?? 0,
+          deltaCents: tx.platformFeeCents - (charge.application_fee_amount ?? 0),
+        });
+      }
+    }
+
+    const payoutByStripeId = new Map(
+      input.payouts.map((p) => [p.stripePayoutId, p]),
+    );
+    for (const sp of input.stripePayouts) {
+      const local = payoutByStripeId.get(sp.id);
+      if (!local) {
+        items.push({
+          code: 'orphan_stripe_payout',
+          objectType: 'payout',
+          stripeId: sp.id,
+          message: 'Stripe payout not recorded locally.',
+          stripeCents: sp.amount,
+        });
+      } else if (local.amountCents !== sp.amount) {
+        items.push({
+          code: 'payout_amount_mismatch',
+          objectType: 'payout',
+          localId: local.id,
+          stripeId: sp.id,
+          message: 'Local payout amount does not match Stripe.',
+          localCents: local.amountCents,
+          stripeCents: sp.amount,
+          deltaCents: local.amountCents - sp.amount,
+        });
+      }
+    }
+
+    return items;
   }
 
   private toDto(report: {

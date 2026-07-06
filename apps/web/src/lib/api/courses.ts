@@ -89,6 +89,70 @@ export async function listMyCourses(): Promise<CreatorCourseListItem[]> {
   return apiFetchPaginated<CreatorCourseListItem>('/courses/mine?limit=100');
 }
 
+export type CourseSummary = {
+  id: string;
+  slug: string;
+  title: string;
+  subtitle: string | null;
+  thumbnailUrl: string | null;
+  status: CourseDetail['status'];
+  estimatedHours: number | null;
+  difficultyLevel: CourseDetail['difficultyLevel'];
+  language: string;
+  offersCertificate: boolean;
+  creator: {
+    slug: string;
+    displayName: string;
+  };
+};
+
+export type ListCoursesParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  category?: string;
+  creator?: string;
+  language?: string;
+  certificates?: boolean;
+};
+
+export type PaginatedCourses<T> = {
+  items: T[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
+function buildCoursesQuery(params: ListCoursesParams): string {
+  const search = new URLSearchParams();
+  if (params.page) search.set('page', String(params.page));
+  if (params.limit) search.set('limit', String(params.limit));
+  if (params.search) search.set('search', params.search);
+  if (params.category) search.set('category', params.category);
+  if (params.creator) search.set('creator', params.creator);
+  if (params.language) search.set('language', params.language);
+  if (params.certificates) search.set('certificates', 'true');
+  return search.toString();
+}
+
+export function listPublishedCourses(
+  params: ListCoursesParams = {},
+): Promise<PaginatedCourses<CourseSummary>> {
+  const query = buildCoursesQuery({ limit: 24, ...params });
+  return apiFetch<PaginatedCourses<CourseSummary>>(`/courses?${query}`);
+}
+
+export function getPublishedCourseById(courseId: string): Promise<CourseDetail> {
+  return apiFetch<CourseDetail>(`/courses/by-id/${courseId}`);
+}
+
+export function getPublishedCourseBySlug(slug: string): Promise<CourseDetail> {
+  return apiFetch<CourseDetail>(`/courses/${slug}`);
+}
+
 export type CreatorCourseStudio = import('@/lib/studio/map-course').CreatorCourseStudio;
 
 export function getMyCourseStudio(courseId: string): Promise<CreatorCourseStudio> {

@@ -1,11 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AdminActionModal } from '@/components/admin/AdminActionModal';
+import { AdminListToolbar } from '@/components/admin/AdminListToolbar';
 import { AdminPageHeader, AdminPanel } from '@/components/admin/AdminPageHeader';
 import { DataTable } from '@/components/admin/DataTable';
 import { StatusBadge, payoutStatusTone } from '@/components/admin/StatusBadge';
+import {
+  downloadCsv,
+  rowsToCsv,
+} from '@/components/admin/admin-list-utils';
 import { formatAdminCents, formatAdminDate } from '@/components/admin/admin-utils';
 import {
   flagTransaction,
@@ -17,17 +22,56 @@ import { LoadingState } from '@/components/ui/LoadingState';
 export function AdminTransactionsPage() {
   const [rows, setRows] = useState<AdminCreatorTransaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [flagTarget, setFlagTarget] = useState<AdminCreatorTransaction | null>(null);
   const [flagReason, setFlagReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
-  useEffect(() => {
-    void listTransactions(100)
-      .then(setRows)
-      .finally(() => setLoading(false));
-  }, []);
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await listTransactions({
+        page,
+        limit: 20,
+        search: search || undefined,
+        status: status || undefined,
+        from: from || undefined,
+        to: to || undefined,
+      });
+      setRows(result.items);
+      setTotalPages(result.meta.totalPages);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, search, status, from, to]);
 
-  if (loading) return <LoadingState variant="page" label="Loading transactions…" />;
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const exportCsv = () => {
+    const csv = rowsToCsv(
+      ['ID', 'Date', 'Creator', 'Course', 'Net', 'Status'],
+      rows.map((r) => [
+        r.id,
+        r.createdAt,
+        r.creatorProfile.displayName,
+        r.course.title,
+        r.creatorNetCents,
+        r.status,
+      ]),
+    );
+    downloadCsv('transactions.csv', csv);
+  };
+
+  if (loading && rows.length === 0) {
+    return <LoadingState variant="page" label="Loading transactions…" />;
+  }
 
   return (
     <div className="space-y-8">
@@ -37,10 +81,46 @@ export function AdminTransactionsPage() {
         description="Platform ledger entries tied to payments, refunds, and payouts."
       />
 
+      <AdminListToolbar
+        search={search}
+        onSearchChange={(value) => {
+          setPage(1);
+          setSearch(value);
+        }}
+        status={status}
+        onStatusChange={(value) => {
+          setPage(1);
+          setStatus(value);
+        }}
+        statusOptions={[
+          { value: 'PENDING', label: 'Pending' },
+          { value: 'AVAILABLE', label: 'Available' },
+          { value: 'PAID_OUT', label: 'Paid out' },
+          { value: 'REFUNDED', label: 'Refunded' },
+        ]}
+        from={from}
+        to={to}
+        onFromChange={(value) => {
+          setPage(1);
+          setFrom(value);
+        }}
+        onToChange={(value) => {
+          setPage(1);
+          setTo(value);
+        }}
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        onExportCsv={exportCsv}
+      />
+
       <AdminPanel noPadding>
         <DataTable
           rows={rows}
           keyFn={(r) => r.id}
+          onRowClick={(r) => {
+            window.location.href = `/admin/transactions/${r.id}`;
+          }}
           columns={[
             {
               key: 'date',
@@ -56,6 +136,7 @@ export function AdminTransactionsPage() {
                 <Link
                   href={`/admin/creators/${r.creatorProfile.id}/risk`}
                   className="text-white hover:text-[#d4a853]"
+                  onClick={(e) => e.stopPropagation()}
                 >
                   {r.creatorProfile.displayName}
                 </Link>
@@ -87,7 +168,10 @@ export function AdminTransactionsPage() {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => setFlagTarget(r)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFlagTarget(r);
+                    }}
                     className="text-xs text-[#d4a853] hover:underline"
                   >
                     Flag
@@ -124,7 +208,7 @@ export function AdminTransactionsPage() {
               await flagTransaction(flagTarget.id, flagReason || reason, reason);
               setFlagTarget(null);
               setFlagReason('');
-              setRows(await listTransactions(100));
+              await load();
             } finally {
               setActionLoading(false);
             }

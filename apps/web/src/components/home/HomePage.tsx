@@ -30,6 +30,9 @@ import { getCreatorStudioLabel, useAuthSession } from '@/hooks/useAuthSession';
 import { coursePublicUrl } from '@/lib/courses';
 import { discoverCreatorUrl } from '@/lib/discover';
 import { mockCourses, mockCreators, compareTrendingCourses, compareCreatorsByPlatformRevenue } from '@/lib/mock-data';
+import { listPublishedCourses } from '@/lib/api/courses';
+import { summaryToDisplayCourse } from '@/lib/catalog/course-display';
+import type { MockCourse } from '@/lib/mock-data';
 import { formatCoursePrice } from '@/lib/utils';
 
 const CATEGORIES = ['All', 'Culinary', 'Music', 'Design', 'Business'];
@@ -247,6 +250,7 @@ export function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState('All');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [catalogCourses, setCatalogCourses] = useState<MockCourse[]>(mockCourses);
   const { isCreator, creatorCourseCount } = useAuthSession();
 
   const creatorCtaLabel = getCreatorStudioLabel(
@@ -265,14 +269,30 @@ export function HomePage() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    void listPublishedCourses({ limit: 24 })
+      .then((result) => {
+        if (!cancelled && result.items.length > 0) {
+          setCatalogCourses(result.items.map((c) => summaryToDisplayCourse(c)));
+        }
+      })
+      .catch(() => {
+        // Keep mock catalog when API is unavailable.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const trendingCourses = useMemo(() => {
     const pool =
       activeCategory === 'All'
-        ? mockCourses
-        : mockCourses.filter((course) => course.category === activeCategory);
+        ? catalogCourses
+        : catalogCourses.filter((course) => course.category === activeCategory);
 
     return [...pool].sort(compareTrendingCourses);
-  }, [activeCategory]);
+  }, [activeCategory, catalogCourses]);
 
   const topCreators = useMemo(
     () => [...mockCreators].sort(compareCreatorsByPlatformRevenue),

@@ -23,8 +23,21 @@ export default () => ({
       .map((value) => value.trim().toLowerCase())
       .filter(Boolean),
   },
+  adminRoleAssignments: (process.env.ADMIN_ROLE_ASSIGNMENTS ?? '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const [identifier, role] = entry.split(':').map((part) => part.trim());
+      return { identifier, role: role?.toUpperCase() };
+    })
+    .filter(
+      (entry): entry is { identifier: string; role: string } =>
+        Boolean(entry.identifier && entry.role),
+    ),
   adminRateLimit: {
     maxRequests: parseInt(process.env.ADMIN_RATE_LIMIT_MAX ?? '120', 10),
     windowMs: parseInt(process.env.ADMIN_RATE_LIMIT_WINDOW_MS ?? '60000', 10),
   },
+  redisUrl: process.env.REDIS_URL,
 });

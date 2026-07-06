@@ -215,6 +215,23 @@ export class CoursesService {
     return this.toCreatorCourseStudio(course, activeSubscriberCount);
   }
 
+  async getPublishedById(id: string): Promise<CourseDetailDto> {
+    const course = await this.prisma.course.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+        status: CourseStatus.PUBLISHED,
+      },
+      include: this.courseDetailInclude(),
+    });
+
+    if (!course) {
+      throw new NotFoundException('Course not found.');
+    }
+
+    return this.toCourseDetail(course);
+  }
+
   async getBySlug(slug: string): Promise<CourseDetailDto> {
     const course = await this.prisma.course.findFirst({
       where: {

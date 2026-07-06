@@ -119,6 +119,12 @@ export class CoursesController {
   }
 
   @Public()
+  @Get('by-id/:id')
+  getPublishedById(@Param() params: IdParamDto): Promise<CourseDetailDto> {
+    return this.coursesService.getPublishedById(params.id);
+  }
+
+  @Public()
   @Get(':slug')
   getBySlug(@Param() params: SlugParamDto): Promise<CourseDetailDto> {
     return this.coursesService.getBySlug(params.slug);

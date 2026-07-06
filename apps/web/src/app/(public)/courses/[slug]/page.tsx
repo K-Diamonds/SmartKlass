@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+import { getPublishedCourseBySlug } from '@/lib/api/courses';
 import { getCourseBySlug } from '@/lib/mock-data';
 import { coursePublicUrl } from '@/lib/courses';
 
@@ -8,11 +9,15 @@ type PageProps = {
 
 export default async function LegacyCourseSlugRedirect({ params }: PageProps) {
   const { slug } = await params;
-  const course = getCourseBySlug(slug);
 
-  if (!course) {
-    notFound();
+  try {
+    const course = await getPublishedCourseBySlug(slug);
+    redirect(coursePublicUrl(course.id));
+  } catch {
+    const mock = getCourseBySlug(slug);
+    if (!mock) {
+      notFound();
+    }
+    redirect(coursePublicUrl(mock.id));
   }
-
-  redirect(coursePublicUrl(course.id));
 }

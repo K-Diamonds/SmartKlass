@@ -219,6 +219,117 @@ export type AdminCreator = {
   riskProfile: CreatorRiskProfile | null;
 };
 
+export type PaginatedMeta = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
+export type PaginatedResult<T> = {
+  items: T[];
+  meta: PaginatedMeta;
+};
+
+export type AdminListParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  creatorProfileId?: string;
+  from?: string;
+  to?: string;
+};
+
+export type RefundRequestStatus =
+  | 'REQUESTED'
+  | 'APPROVED'
+  | 'DENIED'
+  | 'EXECUTING'
+  | 'EXECUTED'
+  | 'FAILED';
+
+export type AdminRefundRequest = {
+  id: string;
+  paymentId: string;
+  amountCents: number;
+  currency: string;
+  reason: string;
+  status: RefundRequestStatus;
+  denialReason: string | null;
+  executionError: string | null;
+  stripeRefundId: string | null;
+  createdAt: string;
+  approvedAt: string | null;
+  deniedAt: string | null;
+  executedAt: string | null;
+  requester: { id: string; email: string };
+  approver: { id: string; email: string } | null;
+  denier: { id: string; email: string } | null;
+  executor: { id: string; email: string } | null;
+  payment: {
+    id: string;
+    amountCents: number;
+    stripeChargeId: string | null;
+    user: { email: string };
+  };
+  creatorTransaction: {
+    id: string;
+    creatorProfile: { id: string; displayName: string };
+  } | null;
+};
+
+export type AdminTransactionDetail = AdminCreatorTransaction & {
+  stripeChargeId: string | null;
+  stripePaymentIntentId: string | null;
+  stripeTransferId: string | null;
+  availableAt: string | null;
+  paidOutAt: string | null;
+  payment: {
+    id: string;
+    status: string;
+    amountCents: number;
+    stripeChargeId: string | null;
+    user: {
+      id: string;
+      email: string;
+      profile: { displayName: string } | null;
+    };
+  } | null;
+  refunds: Array<{
+    id: string;
+    amountCents: number;
+    status: string;
+    createdAt: string;
+  }>;
+  disputes: Array<{
+    id: string;
+    amountCents: number;
+    status: string;
+    createdAt: string;
+  }>;
+};
+
+export type AdminPermissions = {
+  permissions: string[];
+  roles: string[];
+};
+
+function buildAdminQuery(params: Record<string, string | number | undefined>) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') {
+      search.set(key, String(value));
+    }
+  }
+  const q = search.toString();
+  return q ? `?${q}` : '';
+}
+
+export function getAdminPermissions() {
+  return apiFetch<AdminPermissions>('/admin/me/permissions');
+}
+
 export function getAdminMetrics() {
   return apiFetch<AdminMetrics>('/admin/dashboard/metrics');
 }
@@ -233,8 +344,10 @@ export function getSuspiciousCreators(limit = 20) {
   );
 }
 
-export function listCreators(limit = 50) {
-  return apiFetch<AdminCreator[]>(`/admin/creators?limit=${limit}`);
+export function listCreators(params: AdminListParams = {}) {
+  return apiFetch<PaginatedResult<AdminCreator>>(
+    `/admin/creators${buildAdminQuery({ limit: 20, ...params })}`,
+  );
 }
 
 export function getCreatorRisk(creatorProfileId: string) {
@@ -251,22 +364,84 @@ export function getRecentPayments(limit = 50) {
   return apiFetch<AdminPayment[]>(`/admin/dashboard/recent-payments?limit=${limit}`);
 }
 
-export function listTransactions(limit = 50) {
-  return apiFetch<AdminCreatorTransaction[]>(`/admin/transactions?limit=${limit}`);
+export function listTransactions(params: AdminListParams = {}) {
+  return apiFetch<PaginatedResult<AdminCreatorTransaction>>(
+    `/admin/transactions${buildAdminQuery({ limit: 20, ...params })}`,
+  );
 }
 
-export function listRefunds(limit = 50) {
-  return apiFetch<AdminRefund[]>(`/admin/refunds?limit=${limit}`);
+export function getTransaction(id: string) {
+  return apiFetch<AdminTransactionDetail>(`/admin/transactions/${id}`);
 }
 
-export function listDisputes(limit = 50) {
-  return apiFetch<AdminDispute[]>(`/admin/disputes?limit=${limit}`);
+export function listRefunds(params: AdminListParams = {}) {
+  return apiFetch<PaginatedResult<AdminRefund>>(
+    `/admin/refunds${buildAdminQuery({ limit: 20, ...params })}`,
+  );
 }
 
-export function listPayouts(limit = 50, status?: string) {
-  const params = new URLSearchParams({ limit: String(limit) });
-  if (status) params.set('status', status);
-  return apiFetch<AdminPayout[]>(`/admin/payouts?${params}`);
+export function listRefundRequests(
+  params: AdminListParams & { paymentId?: string } = {},
+) {
+  return apiFetch<PaginatedResult<AdminRefundRequest>>(
+    `/admin/refund-requests${buildAdminQuery({ limit: 20, ...params })}`,
+  );
+}
+
+export function getRefundRequest(id: string) {
+  return apiFetch<AdminRefundRequest>(`/admin/refund-requests/${id}`);
+}
+
+export function getRefundRequestAudit(id: string) {
+  return apiFetch<AdminAuditLog[]>(`/admin/refund-requests/${id}/audit`);
+}
+
+export function requestRefund(input: {
+  paymentId: string;
+  amountCents: number;
+  reason: string;
+}) {
+  return apiFetch<AdminRefundRequest>('/admin/refund-requests', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function approveRefundRequest(id: string, reason: string) {
+  return apiFetch<AdminRefundRequest>(`/admin/refund-requests/${id}/approve`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export function denyRefundRequest(
+  id: string,
+  reason: string,
+  denialReason: string,
+) {
+  return apiFetch<AdminRefundRequest>(`/admin/refund-requests/${id}/deny`, {
+    method: 'POST',
+    body: JSON.stringify({ reason, denialReason }),
+  });
+}
+
+export function executeRefundRequest(id: string, reason: string) {
+  return apiFetch<AdminRefundRequest>(`/admin/refund-requests/${id}/execute`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export function listDisputes(params: AdminListParams = {}) {
+  return apiFetch<PaginatedResult<AdminDispute>>(
+    `/admin/disputes${buildAdminQuery({ limit: 20, ...params })}`,
+  );
+}
+
+export function listPayouts(params: AdminListParams = {}) {
+  return apiFetch<PaginatedResult<AdminPayout>>(
+    `/admin/payouts${buildAdminQuery({ limit: 20, ...params })}`,
+  );
 }
 
 export function listReconciliationReports() {
@@ -424,7 +599,7 @@ export function updateDisputeEvidence(
 
 export async function verifyAdminAccess(): Promise<boolean> {
   try {
-    await getAdminMetrics();
+    await getAdminPermissions();
     return true;
   } catch {
     return false;

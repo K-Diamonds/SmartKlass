@@ -1,31 +1,72 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { AdminListToolbar } from '@/components/admin/AdminListToolbar';
 import { AdminPageHeader, AdminPanel } from '@/components/admin/AdminPageHeader';
 import { DataTable } from '@/components/admin/DataTable';
 import { StatusBadge, payoutStatusTone } from '@/components/admin/StatusBadge';
+import {
+  downloadCsv,
+  rowsToCsv,
+} from '@/components/admin/admin-list-utils';
 import { formatAdminCents, formatAdminDate } from '@/components/admin/admin-utils';
 import { listPayouts, type AdminPayout } from '@/lib/api/admin';
 import { LoadingState } from '@/components/ui/LoadingState';
 
 export function AdminPayoutsPage() {
   const searchParams = useSearchParams();
-  const initialStatus = searchParams.get('status') ?? undefined;
+  const initialStatus = searchParams.get('status') ?? '';
   const [rows, setRows] = useState<AdminPayout[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string | undefined>(initialStatus);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [status, setStatus] = useState(initialStatus);
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await listPayouts({
+        page,
+        limit: 20,
+        status: status || undefined,
+        from: from || undefined,
+        to: to || undefined,
+      });
+      setRows(result.items);
+      setTotalPages(result.meta.totalPages);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, status, from, to]);
 
   useEffect(() => {
-    void listPayouts(100, filter)
-      .then(setRows)
-      .finally(() => setLoading(false));
-  }, [filter]);
-
-  if (loading) return <LoadingState variant="page" label="Loading payouts…" />;
+    void load();
+  }, [load]);
 
   const failed = rows.filter((r) => r.status === 'FAILED');
+
+  const exportCsv = () => {
+    const csv = rowsToCsv(
+      ['ID', 'Creator', 'Amount', 'Status', 'Created', 'Paid at'],
+      rows.map((r) => [
+        r.id,
+        r.creatorProfile.displayName,
+        r.amountCents,
+        r.status,
+        r.createdAt,
+        r.paidAt,
+      ]),
+    );
+    downloadCsv('payouts.csv', csv);
+  };
+
+  if (loading && rows.length === 0) {
+    return <LoadingState variant="page" label="Loading payouts…" />;
+  }
 
   return (
     <div className="space-y-8">
@@ -33,38 +74,41 @@ export function AdminPayoutsPage() {
         eyebrow="Connect payouts"
         title="Creator payouts"
         description="Stripe Connect payout sync — failed payouts need ops follow-up."
-        actions={
-          <div className="flex gap-2">
-            {[
-              { label: 'All', value: undefined },
-              { label: 'Failed', value: 'FAILED' },
-              { label: 'Paid', value: 'PAID' },
-            ].map((f) => (
-              <button
-                key={f.label}
-                type="button"
-                onClick={() => {
-                  setLoading(true);
-                  setFilter(f.value);
-                }}
-                className={
-                  filter === f.value
-                    ? 'rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white'
-                    : 'rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/50'
-                }
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        }
       />
 
-      {failed.length > 0 && filter !== 'FAILED' && (
+      {failed.length > 0 && status !== 'FAILED' && (
         <p className="rounded-lg border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {failed.length} failed payout(s) in recent history — filter by Failed to investigate.
+          {failed.length} failed payout(s) on this page — filter by Failed to investigate.
         </p>
       )}
+
+      <AdminListToolbar
+        status={status}
+        onStatusChange={(value) => {
+          setPage(1);
+          setStatus(value);
+        }}
+        statusOptions={[
+          { value: 'PENDING', label: 'Pending' },
+          { value: 'IN_TRANSIT', label: 'In transit' },
+          { value: 'PAID', label: 'Paid' },
+          { value: 'FAILED', label: 'Failed' },
+        ]}
+        from={from}
+        to={to}
+        onFromChange={(value) => {
+          setPage(1);
+          setFrom(value);
+        }}
+        onToChange={(value) => {
+          setPage(1);
+          setTo(value);
+        }}
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        onExportCsv={exportCsv}
+      />
 
       <AdminPanel noPadding>
         <DataTable

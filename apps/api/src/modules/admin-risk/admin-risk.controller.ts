@@ -33,8 +33,19 @@ import {
   UpdateFeatureFlagDto,
 } from './dto/admin-risk.dto';
 import { FeatureFlagService, FraudRulesService } from './feature-flag.service';
+import { AdminPermissionGuard } from './guards/admin-permission.guard';
 import { AdminRateLimitGuard } from './guards/admin-rate-limit.guard';
-import { StaffGuard } from './guards/staff.guard';
+import { RefundWorkflowService } from './refund-workflow.service';
+import { AdminRbacService } from './admin-rbac.service';
+import { ADMIN_PERMISSIONS } from './admin-permissions.constants';
+import { RequireAdminPermissions } from './decorators/require-admin-permissions.decorator';
+import {
+  AdminListQueryDto,
+  DenyRefundDto,
+  RefundActionDto,
+  RefundRequestQueryDto,
+  RequestRefundDto,
+} from './dto/admin-list.dto';
 import { StripeReconciliationService } from './stripe-reconciliation.service';
 import { WebhookReplayService } from './webhook-replay.service';
 
@@ -51,7 +62,7 @@ function clientIp(request: Request): string | undefined {
 }
 
 @Controller('admin')
-@UseGuards(StaffGuard, AdminRateLimitGuard)
+@UseGuards(AdminPermissionGuard, AdminRateLimitGuard)
 export class AdminRiskController {
   constructor(
     private readonly dashboard: AdminDashboardService,
@@ -62,62 +73,176 @@ export class AdminRiskController {
     private readonly featureFlags: FeatureFlagService,
     private readonly fraudRules: FraudRulesService,
     private readonly impersonation: AdminImpersonationService,
+    private readonly refundWorkflow: RefundWorkflowService,
+    private readonly rbac: AdminRbacService,
   ) {}
 
+  @Get('me/permissions')
+  async getMyPermissions(@CurrentUser() user: AuthenticatedUser) {
+    const actor = actorId(user);
+    const [permissions, roles] = await Promise.all([
+      this.rbac.getUserPermissions(actor),
+      this.rbac.getUserRoles(actor),
+    ]);
+    return {
+      permissions,
+      roles: roles.map((r) => r.role.key),
+    };
+  }
+
   @Get('dashboard/metrics')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.METRICS_READ)
   getMetrics() {
     return this.dashboard.getMetrics();
   }
 
   @Get('dashboard/top-creators')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.METRICS_READ)
   getTopCreators(@Query('limit') limit?: string) {
     return this.dashboard.getTopCreators(limit ? Number(limit) : 10);
   }
 
   @Get('dashboard/suspicious-creators')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.METRICS_READ)
   getSuspiciousCreators(@Query('limit') limit?: string) {
     return this.dashboard.getSuspiciousCreators(limit ? Number(limit) : 20);
   }
 
   @Get('dashboard/recent-payments')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.METRICS_READ)
   getRecentPayments(@Query('limit') limit?: string) {
     return this.dashboard.getRecentPayments(limit ? Number(limit) : 50);
   }
 
   @Get('refunds')
-  listRefunds(@Query('limit') limit?: string) {
-    return this.dashboard.listRefunds(limit ? Number(limit) : 50);
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.REFUNDS_READ)
+  listRefunds(@Query() query: AdminListQueryDto) {
+    return this.dashboard.listRefunds(query);
+  }
+
+  @Get('refund-requests')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.REFUNDS_READ)
+  listRefundRequests(@Query() query: RefundRequestQueryDto) {
+    return this.refundWorkflow.list({
+      page: query.page,
+      limit: query.limit,
+      status: query.status,
+      paymentId: query.paymentId,
+      creatorProfileId: query.creatorProfileId,
+      from: query.from ? new Date(query.from) : undefined,
+      to: query.to ? new Date(query.to) : undefined,
+    });
+  }
+
+  @Get('refund-requests/:id')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.REFUNDS_READ)
+  getRefundRequest(@Param('id') id: string) {
+    return this.refundWorkflow.getById(id);
+  }
+
+  @Get('refund-requests/:id/audit')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.REFUNDS_READ)
+  getRefundRequestAudit(@Param('id') id: string) {
+    return this.refundWorkflow.getAuditTrail(id);
+  }
+
+  @Post('refund-requests')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.REFUNDS_REQUEST)
+  requestRefund(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: RequestRefundDto,
+    @Req() request: Request,
+  ) {
+    return this.refundWorkflow.requestRefund(dto, {
+      actorUserId: actorId(user),
+      reason: dto.reason,
+      ipAddress: clientIp(request),
+    });
+  }
+
+  @Post('refund-requests/:id/approve')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.REFUNDS_APPROVE)
+  approveRefundRequest(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: RefundActionDto,
+    @Req() request: Request,
+  ) {
+    return this.refundWorkflow.approve(id, {
+      actorUserId: actorId(user),
+      reason: dto.reason,
+      ipAddress: clientIp(request),
+    });
+  }
+
+  @Post('refund-requests/:id/deny')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.REFUNDS_DENY)
+  denyRefundRequest(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: DenyRefundDto,
+    @Req() request: Request,
+  ) {
+    return this.refundWorkflow.deny(id, dto.denialReason, {
+      actorUserId: actorId(user),
+      reason: dto.reason,
+      ipAddress: clientIp(request),
+    });
+  }
+
+  @Post('refund-requests/:id/execute')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.REFUNDS_EXECUTE)
+  executeRefundRequest(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: RefundActionDto,
+    @Req() request: Request,
+  ) {
+    return this.refundWorkflow.execute(id, {
+      actorUserId: actorId(user),
+      reason: dto.reason,
+      ipAddress: clientIp(request),
+    });
   }
 
   @Get('disputes')
-  listDisputes(@Query('limit') limit?: string) {
-    return this.dashboard.listDisputes(limit ? Number(limit) : 50);
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.DISPUTES_READ)
+  listDisputes(@Query() query: AdminListQueryDto) {
+    return this.dashboard.listDisputes(query);
   }
 
   @Get('payouts')
-  listPayouts(
-    @Query('limit') limit?: string,
-    @Query('status') status?: string,
-  ) {
-    return this.dashboard.listPayouts(limit ? Number(limit) : 50, status);
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.PAYOUTS_READ)
+  listPayouts(@Query() query: AdminListQueryDto) {
+    return this.dashboard.listPayouts(query);
   }
 
   @Get('transactions')
-  listTransactions(@Query('limit') limit?: string) {
-    return this.dashboard.listCreatorTransactions(limit ? Number(limit) : 50);
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.TRANSACTIONS_READ)
+  listTransactions(@Query() query: AdminListQueryDto) {
+    return this.dashboard.listCreatorTransactions(query);
+  }
+
+  @Get('transactions/:id')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.TRANSACTIONS_READ)
+  getTransaction(@Param('id') id: string) {
+    return this.dashboard.getCreatorTransactionById(id);
   }
 
   @Get('creators')
-  listCreators(@Query('limit') limit?: string) {
-    return this.dashboard.listCreators(limit ? Number(limit) : 50);
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.CREATORS_READ)
+  listCreators(@Query() query: AdminListQueryDto) {
+    return this.dashboard.listCreators(query);
   }
 
   @Get('creators/:creatorProfileId/risk')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.CREATORS_READ)
   getCreatorRisk(@Param('creatorProfileId') creatorProfileId: string) {
     return this.creatorRisk.getRiskProfile(creatorProfileId);
   }
 
   @Get('creators/:creatorProfileId/risk-events')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.CREATORS_READ)
   getCreatorRiskEvents(
     @Param('creatorProfileId') creatorProfileId: string,
     @Query('limit') limit?: string,
@@ -129,6 +254,7 @@ export class AdminRiskController {
   }
 
   @Post('creators/:creatorProfileId/suspend')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.CREATORS_WRITE)
   suspendCreator(
     @Param('creatorProfileId') creatorProfileId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -143,6 +269,7 @@ export class AdminRiskController {
   }
 
   @Post('creators/:creatorProfileId/trust')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.CREATORS_WRITE)
   markTrusted(
     @Param('creatorProfileId') creatorProfileId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -157,6 +284,7 @@ export class AdminRiskController {
   }
 
   @Post('creators/:creatorProfileId/high-risk')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.CREATORS_WRITE)
   markHighRisk(
     @Param('creatorProfileId') creatorProfileId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -171,6 +299,7 @@ export class AdminRiskController {
   }
 
   @Post('creators/:creatorProfileId/extend-payout-hold')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.CREATORS_WRITE)
   extendPayoutHold(
     @Param('creatorProfileId') creatorProfileId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -189,6 +318,7 @@ export class AdminRiskController {
   }
 
   @Post('creators/:creatorProfileId/notes')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.CREATORS_WRITE)
   addInternalNote(
     @Param('creatorProfileId') creatorProfileId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -203,6 +333,7 @@ export class AdminRiskController {
   }
 
   @Post('course-access/revoke')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.CREATORS_WRITE)
   revokeCourseAccess(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: RevokeCourseAccessDto,
@@ -216,6 +347,7 @@ export class AdminRiskController {
   }
 
   @Post('refunds/:refundId/approve')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.REFUNDS_APPROVE)
   approveRefund(
     @Param('refundId') refundId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -230,6 +362,7 @@ export class AdminRiskController {
   }
 
   @Post('transactions/:transactionId/flag')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.TRANSACTIONS_WRITE)
   flagTransaction(
     @Param('transactionId') transactionId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -244,6 +377,7 @@ export class AdminRiskController {
   }
 
   @Patch('disputes/:disputeId/evidence')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.DISPUTES_WRITE)
   updateDisputeEvidence(
     @Param('disputeId') disputeId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -264,6 +398,7 @@ export class AdminRiskController {
   }
 
   @Get('audit-logs')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.AUDIT_READ)
   listAuditLogs(@Query() query: AdminAuditLogQueryDto) {
     return this.audit.listRecent({
       targetType: query.targetType,
@@ -273,16 +408,19 @@ export class AdminRiskController {
   }
 
   @Get('reconciliation/reports')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.RECONCILIATION_READ)
   listReconciliationReports() {
     return this.reconciliation.listReports();
   }
 
   @Get('reconciliation/reports/:id')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.RECONCILIATION_READ)
   getReconciliationReport(@Param('id') id: string) {
     return this.reconciliation.getReport(id);
   }
 
   @Post('reconciliation/run')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.RECONCILIATION_RUN)
   runReconciliation(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: RunReconciliationDto,
@@ -297,6 +435,7 @@ export class AdminRiskController {
   }
 
   @Get('webhooks/stripe/processed')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.WEBHOOKS_READ)
   listProcessedStripeEvents(
     @Query('type') type?: string,
     @Query('replayRequested') replayRequested?: string,
@@ -310,6 +449,7 @@ export class AdminRiskController {
   }
 
   @Post('webhooks/stripe/:eventId/mark-replay')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.WEBHOOKS_REPLAY)
   markStripeEventReplay(
     @Param('eventId') eventId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -325,6 +465,7 @@ export class AdminRiskController {
   }
 
   @Post('webhooks/stripe/:eventId/replay')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.WEBHOOKS_REPLAY)
   replayStripeEvent(
     @Param('eventId') eventId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -339,11 +480,13 @@ export class AdminRiskController {
   }
 
   @Get('feature-flags')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.METRICS_READ)
   listFeatureFlags() {
     return this.featureFlags.listFlags();
   }
 
   @Patch('feature-flags/:key')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.FLAGS_WRITE)
   updateFeatureFlag(
     @Param('key') key: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -360,16 +503,19 @@ export class AdminRiskController {
   }
 
   @Get('fraud-rules')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.METRICS_READ)
   listFraudRules() {
     return this.fraudRules.listRules();
   }
 
   @Post('fraud-rules/seed')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.FLAGS_WRITE)
   seedFraudRules() {
     return this.fraudRules.seedDefaults();
   }
 
   @Post('users/:userId/impersonate')
+  @RequireAdminPermissions(ADMIN_PERMISSIONS.IMPERSONATE)
   impersonateUser(
     @Param('userId') userId: string,
     @CurrentUser() user: AuthenticatedUser,

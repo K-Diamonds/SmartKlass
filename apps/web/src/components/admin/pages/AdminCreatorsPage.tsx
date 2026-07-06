@@ -1,10 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { AdminListToolbar } from '@/components/admin/AdminListToolbar';
 import { AdminPageHeader, AdminPanel } from '@/components/admin/AdminPageHeader';
 import { DataTable } from '@/components/admin/DataTable';
 import { TrustLevelBadge } from '@/components/admin/StatusBadge';
+import {
+  downloadCsv,
+  rowsToCsv,
+} from '@/components/admin/admin-list-utils';
 import { formatAdminCents, formatPercent } from '@/components/admin/admin-utils';
 import {
   getSuspiciousCreators,
@@ -18,18 +23,33 @@ export function AdminCreatorsPage() {
   const [creators, setCreators] = useState<AdminCreator[]>([]);
   const [suspicious, setSuspicious] = useState<SuspiciousCreator[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'risk' | 'suspended'>('all');
 
-  useEffect(() => {
-    Promise.all([listCreators(100), getSuspiciousCreators(50)])
-      .then(([c, s]) => {
-        setCreators(c);
-        setSuspicious(s);
-      })
-      .finally(() => setLoading(false));
-  }, []);
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [result, s] = await Promise.all([
+        listCreators({ page, limit: 20, search: search || undefined }),
+        getSuspiciousCreators(50),
+      ]);
+      setCreators(result.items);
+      setTotalPages(result.meta.totalPages);
+      setSuspicious(s);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, search]);
 
-  if (loading) return <LoadingState variant="page" label="Loading creators…" />;
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (loading && creators.length === 0) {
+    return <LoadingState variant="page" label="Loading creators…" />;
+  }
 
   const suspiciousIds = new Set(suspicious.map((s) => s.creatorProfileId));
 
@@ -38,6 +58,20 @@ export function AdminCreatorsPage() {
     if (filter === 'risk') return suspiciousIds.has(c.id);
     return true;
   });
+
+  const exportCsv = () => {
+    const csv = rowsToCsv(
+      ['Name', 'Slug', 'Trust', 'Payout hold', 'Lifetime sales'],
+      rows.map((r) => [
+        r.displayName,
+        r.slug,
+        r.riskProfile?.trustLevel ?? 'NEW',
+        r.riskProfile?.payoutDelayDays ?? 30,
+        r.riskProfile?.lifetimeSalesCents ?? 0,
+      ]),
+    );
+    downloadCsv('creators.csv', csv);
+  };
 
   return (
     <div className="space-y-8">
@@ -65,7 +99,19 @@ export function AdminCreatorsPage() {
         }
       />
 
-      <AdminPanel title={`${rows.length} creators`} noPadding>
+      <AdminListToolbar
+        search={search}
+        onSearchChange={(value) => {
+          setPage(1);
+          setSearch(value);
+        }}
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        onExportCsv={exportCsv}
+      />
+
+      <AdminPanel title={`${rows.length} creators on this page`} noPadding>
         <DataTable
           rows={rows}
           keyFn={(r) => r.id}

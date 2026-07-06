@@ -1,19 +1,21 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { CourseCard } from '@/components';
 import { DiscoverFilters } from '@/components/catalog/DiscoverFilters';
-import {
-  filterCatalogCourses,
-  getCreatorByHandle,
-  type CatalogSort,
-} from '@/lib/mock-data';
+import { listPublishedCourses } from '@/lib/api/courses';
+import { summaryToDisplayCourse } from '@/lib/catalog/course-display';
+import { filterCatalogCourses, getCreatorByHandle, type CatalogSort } from '@/lib/mock-data';
+import type { MockCourse } from '@/lib/mock-data';
 
 function DiscoverContent() {
   const { t } = useTranslation();
   const searchParams = useSearchParams();
+  const [apiCourses, setApiCourses] = useState<MockCourse[]>([]);
+  const [usedApi, setUsedApi] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const sort = (
     searchParams.get('sort') === 'recent'
@@ -27,13 +29,55 @@ function DiscoverContent() {
   const language = searchParams.get('language') ?? 'All';
   const creator = searchParams.get('creator') ?? 'All';
 
-  const filtered = filterCatalogCourses({
-    category,
-    sort,
-    query,
-    language,
-    creator,
-  });
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      try {
+        const result = await listPublishedCourses({
+          limit: 48,
+          search: query || undefined,
+          creator: creator !== 'All' ? creator : undefined,
+          language: language !== 'All' ? language : undefined,
+          certificates: sort === 'certificates' ? true : undefined,
+          category:
+            category !== 'All'
+              ? category.toLowerCase().replace(/\s+/g, '-')
+              : undefined,
+        });
+        if (!cancelled) {
+          setApiCourses(
+            result.items.map((course) =>
+              summaryToDisplayCourse(course, { category: category !== 'All' ? category : 'General' }),
+            ),
+          );
+          setUsedApi(true);
+        }
+      } catch {
+        if (!cancelled) {
+          setUsedApi(false);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [query, category, language, creator, sort]);
+
+  const filtered = useMemo(() => {
+    if (usedApi) {
+      return apiCourses;
+    }
+    return filterCatalogCourses({ category, sort, query, language, creator });
+  }, [usedApi, apiCourses, category, sort, query, language, creator]);
+
   const activeCreator =
     creator !== 'All' ? getCreatorByHandle(creator) : undefined;
   const hasCreatorFilter = creator !== 'All';
@@ -85,13 +129,17 @@ function DiscoverContent() {
         </p>
       )}
 
-      <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((course) => (
-          <CourseCard key={course.id} course={course} />
-        ))}
-      </div>
+      {loading ? (
+        <p className="mt-10 text-sm text-muted-foreground">{t('common.loading')}</p>
+      ) : (
+        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((course) => (
+            <CourseCard key={course.id} course={course} />
+          ))}
+        </div>
+      )}
 
-      {filtered.length === 0 && (
+      {!loading && filtered.length === 0 && (
         <div className="mt-16 rounded-3xl border border-dashed border-border bg-surface px-6 py-12 text-center">
           <p className="font-display text-lg font-semibold text-foreground">
             {t('discover.noResultsTitle')}
@@ -107,7 +155,7 @@ function DiscoverContent() {
 
 export default function DiscoverPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<div className="px-4 py-12 text-sm text-muted-foreground">Loading…</div>}>
       <DiscoverContent />
     </Suspense>
   );
