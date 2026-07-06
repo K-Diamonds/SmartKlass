@@ -124,11 +124,11 @@ jobs:
         run: |
           url="https://smart-klass-api.vercel.app"
           for attempt in 1 2 3 4 5 6; do
-            if curl -fsS "$url/api/v1/health" | grep -q '"status"'; then
-              echo "Health OK (attempt $attempt)"
+            if curl -fsS "$url/api/v1/health/live" | grep -q '"status":"ok"'; then
+              echo "Liveness OK (attempt $attempt)"
               exit 0
             fi
             echo "Waiting for production alias… attempt $attempt"
             sleep 10
           done
-          curl -fsS "$url/api/v1/health"
+          curl -fsS "$url/api/v1/health/live"

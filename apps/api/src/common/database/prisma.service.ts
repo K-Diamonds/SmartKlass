@@ -14,7 +14,18 @@ export class PrismaService
   }
 
   async onModuleInit(): Promise<void> {
-    await this.$connect();
+    try {
+      await this.$connect();
+    } catch (error) {
+      if (process.env.VERCEL) {
+        console.error(
+          'Prisma connect deferred on Vercel — will retry on first query',
+          error,
+        );
+        return;
+      }
+      throw error;
+    }
   }
 
   async onModuleDestroy(): Promise<void> {

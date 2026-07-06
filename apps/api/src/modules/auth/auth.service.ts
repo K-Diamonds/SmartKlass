@@ -6,7 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { UserStatus } from '@smartklass/database';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import type { StringValue } from 'ms';
 import { PrismaService } from '../../common/database/prisma.service';
 import { JwtPayload } from '../../common/auth/interfaces/authenticated-user.interface';

@@ -68,3 +68,4 @@ Manual redeploy: **Actions → Redeploy Vercel → Run workflow**
 - **Workers:** Outbox/daily jobs are disabled on Vercel (`WORKER_ENABLED=false`). Run workers on a container host if needed.
 - **Uploads:** Avatar uploads use local disk in dev; use object storage in production serverless.
 - **Stripe webhooks:** Point to `https://smart-klass-api.vercel.app/api/v1/stripe/webhook`
+- **MySQL (Hostinger / remote):** Allow external connections from Vercel egress IPs or use a connection pooler. If Prisma fails to connect, add SSL params to `DATABASE_URL` per your host docs.
