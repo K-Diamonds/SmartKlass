@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Header } from '@nestjs/common';
 import { Public } from '../../common/auth';
 import { HealthCheckDto } from './dto/health-check.dto';
 import { HealthService } from './health.service';
@@ -26,5 +26,11 @@ export class HealthController {
   @Get('metrics')
   getMetrics() {
     return this.healthService.getMetrics();
+  }
+
+  @Get('metrics/prometheus')
+  @Header('Content-Type', 'text/plain; version=0.0.4; charset=utf-8')
+  getPrometheusMetrics(): string {
+    return this.healthService.getPrometheusMetrics();
   }
 }

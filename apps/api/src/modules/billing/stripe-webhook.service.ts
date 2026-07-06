@@ -2,6 +2,8 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import Stripe from 'stripe';
 import { AccessPlanType, NotificationType } from '@smartklass/database';
 import { PrismaService } from '../../common/database/prisma.service';
+import { MetricsService } from '../../common/observability/metrics.service';
+import { TracingService } from '../../common/observability/tracing.service';
 import { BillingFulfillmentService } from './billing-fulfillment.service';
 import { CreatorBillingService } from './creator-billing.service';
 import { MarketplaceAccountingService } from './marketplace-accounting.service';
@@ -24,59 +26,79 @@ export class StripeWebhookService {
     private readonly fulfillment: BillingFulfillmentService,
     private readonly creatorBilling: CreatorBillingService,
     private readonly marketplaceAccounting: MarketplaceAccountingService,
+    private readonly metrics: MetricsService,
+    private readonly tracing: TracingService,
   ) {}
 
   async handleWebhook(
     rawBody: Buffer | undefined,
     signature: string | undefined,
   ): Promise<StripeWebhookResponseDto> {
-    if (!rawBody) {
-      throw new BadRequestException(
-        'Missing raw request body for webhook verification.',
-      );
-    }
-
-    if (!signature) {
-      throw new BadRequestException('Missing Stripe signature header.');
-    }
-
-    const stripe = this.stripeClient.getClient();
-    const webhookSecret = this.stripeClient.getWebhookSecret();
-
-    let event: Stripe.Event;
+    const startedAt = Date.now();
 
     try {
-      event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Invalid webhook signature.';
-      throw new BadRequestException(message);
+      return await this.tracing.withSpan('stripe.webhook', async () => {
+        if (!rawBody) {
+          throw new BadRequestException(
+            'Missing raw request body for webhook verification.',
+          );
+        }
+
+        if (!signature) {
+          throw new BadRequestException('Missing Stripe signature header.');
+        }
+
+        const stripe = this.stripeClient.getClient();
+        const webhookSecret = this.stripeClient.getWebhookSecret();
+
+        let event: Stripe.Event;
+
+        try {
+          event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : 'Invalid webhook signature.';
+          this.metrics.increment('stripe_webhook_failures_total', {
+            reason: 'signature',
+          });
+          throw new BadRequestException(message);
+        }
+
+        const alreadyProcessed = await this.prisma.processedStripeEvent.findUnique({
+          where: { id: event.id },
+        });
+
+        if (alreadyProcessed) {
+          return {
+            received: true,
+            message: `Event ${event.id} already processed.`,
+          };
+        }
+
+        await this.dispatchEvent(event);
+
+        await this.prisma.processedStripeEvent.create({
+          data: {
+            id: event.id,
+            type: event.type,
+          },
+        });
+
+        this.metrics.increment('stripe_webhook_processed_total', {
+          type: event.type,
+        });
+
+        return {
+          received: true,
+          message: `Processed ${event.type}.`,
+        };
+      });
+    } finally {
+      this.metrics.observe(
+        'stripe_webhook_duration_ms',
+        Date.now() - startedAt,
+      );
     }
-
-    const alreadyProcessed = await this.prisma.processedStripeEvent.findUnique({
-      where: { id: event.id },
-    });
-
-    if (alreadyProcessed) {
-      return {
-        received: true,
-        message: `Event ${event.id} already processed.`,
-      };
-    }
-
-    await this.dispatchEvent(event);
-
-    await this.prisma.processedStripeEvent.create({
-      data: {
-        id: event.id,
-        type: event.type,
-      },
-    });
-
-    return {
-      received: true,
-      message: `Processed ${event.type}.`,
-    };
   }
 
   isReplayEnabled(): boolean {

@@ -41,6 +41,64 @@ export class MetricsService {
     return { counters, histograms };
   }
 
+  toPrometheus(): string {
+    const lines: string[] = [];
+
+    for (const [key, value] of this.counters) {
+      const { name, labels } = this.parseKey(key);
+      const labelStr = this.formatLabels(labels);
+      lines.push(`# TYPE ${name} counter`);
+      lines.push(`${name}${labelStr} ${value}`);
+    }
+
+    for (const [key, values] of this.histograms) {
+      const { name, labels } = this.parseKey(key);
+      const labelStr = this.formatLabels(labels);
+      const sorted = [...values].sort((a, b) => a - b);
+      const p95Index = Math.floor(sorted.length * 0.95);
+      const p95 = sorted[p95Index] ?? 0;
+      lines.push(`# TYPE ${name} summary`);
+      lines.push(`${name}_count${labelStr} ${sorted.length}`);
+      lines.push(`${name}${labelStr}{quantile="0.95"} ${p95}`);
+    }
+
+    return `${lines.join('\n')}\n`;
+  }
+
+  private parseKey(key: string): {
+    name: string;
+    labels: Record<string, string>;
+  } {
+    const braceIndex = key.indexOf('{');
+    if (braceIndex === -1) {
+      return { name: key, labels: {} };
+    }
+
+    const name = key.slice(0, braceIndex);
+    const labelBody = key.slice(braceIndex + 1, -1);
+    const labels: Record<string, string> = {};
+
+    if (labelBody) {
+      for (const part of labelBody.split(',')) {
+        const [k, v] = part.split('=');
+        if (k && v !== undefined) {
+          labels[k] = v;
+        }
+      }
+    }
+
+    return { name, labels };
+  }
+
+  private formatLabels(labels: Record<string, string>): string {
+    const entries = Object.entries(labels);
+    if (entries.length === 0) {
+      return '';
+    }
+    const body = entries.map(([k, v]) => `${k}="${v}"`).join(',');
+    return `{${body}}`;
+  }
+
   private key(name: string, labels?: Record<string, string>): string {
     if (!labels || Object.keys(labels).length === 0) {
       return name;

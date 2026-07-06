@@ -29,10 +29,11 @@ import { PublicNavActions } from '@/components/layout/PublicNavActions';
 import { getCreatorStudioLabel, useAuthSession } from '@/hooks/useAuthSession';
 import { coursePublicUrl } from '@/lib/courses';
 import { discoverCreatorUrl } from '@/lib/discover';
-import { mockCourses, mockCreators, compareTrendingCourses, compareCreatorsByPlatformRevenue } from '@/lib/mock-data';
+import { compareTrendingCourses } from '@/lib/mock-data';
 import { listPublishedCourses } from '@/lib/api/courses';
+import { listCreatorDirectory } from '@/lib/api/creators';
 import { summaryToDisplayCourse } from '@/lib/catalog/course-display';
-import type { MockCourse } from '@/lib/mock-data';
+import type { MockCourse, MockCreator } from '@/lib/mock-data';
 import { formatCoursePrice } from '@/lib/utils';
 
 const CATEGORIES = ['All', 'Culinary', 'Music', 'Design', 'Business'];
@@ -167,7 +168,7 @@ function HomeNav({
 function CarouselCourseCard({
   course,
 }: {
-  course: (typeof mockCourses)[0];
+  course: MockCourse;
 }) {
   return (
     <Link
@@ -250,7 +251,8 @@ export function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState('All');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [catalogCourses, setCatalogCourses] = useState<MockCourse[]>(mockCourses);
+  const [catalogCourses, setCatalogCourses] = useState<MockCourse[]>([]);
+  const [topCreators, setTopCreators] = useState<MockCreator[]>([]);
   const { isCreator, creatorCourseCount } = useAuthSession();
 
   const creatorCtaLabel = getCreatorStudioLabel(
@@ -273,12 +275,46 @@ export function HomePage() {
     let cancelled = false;
     void listPublishedCourses({ limit: 24 })
       .then((result) => {
-        if (!cancelled && result.items.length > 0) {
+        if (!cancelled) {
           setCatalogCourses(result.items.map((c) => summaryToDisplayCourse(c)));
         }
       })
       .catch(() => {
-        // Keep mock catalog when API is unavailable.
+        if (!cancelled) {
+          setCatalogCourses([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listCreatorDirectory()
+      .then((creators) => {
+        if (!cancelled) {
+          setTopCreators(
+            creators.slice(0, 6).map((creator) => ({
+              id: creator.slug,
+              handle: creator.slug,
+              displayName: creator.displayName,
+              headline: '',
+              bio: '',
+              avatarUrl:
+                creator.avatarUrl ??
+                'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop',
+              courseCount: creator.courseCount,
+              studentCount: 0,
+              rating: 0,
+            })),
+          );
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setTopCreators([]);
+        }
       });
     return () => {
       cancelled = true;
@@ -293,11 +329,6 @@ export function HomePage() {
 
     return [...pool].sort(compareTrendingCourses);
   }, [activeCategory, catalogCourses]);
-
-  const topCreators = useMemo(
-    () => [...mockCreators].sort(compareCreatorsByPlatformRevenue),
-    [],
-  );
 
   return (
     <div>

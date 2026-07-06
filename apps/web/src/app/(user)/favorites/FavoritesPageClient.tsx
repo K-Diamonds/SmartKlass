@@ -6,15 +6,9 @@ import { CourseCard, EmptyState } from '@/components';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { useFavorites } from '@/hooks/useFavorites';
 import { listMyFavorites, type FavoriteItem } from '@/lib/api/favorites';
-import { getCourseBySlug, type MockCourse } from '@/lib/mock-data';
+import type { MockCourse } from '@/lib/mock-data';
 
 function favoriteToMockCourse(favorite: FavoriteItem): MockCourse {
-  const mock = getCourseBySlug(favorite.course.slug);
-
-  if (mock) {
-    return mock;
-  }
-
   return {
     id: favorite.courseId,
     slug: favorite.course.slug,
@@ -39,6 +33,8 @@ function favoriteToMockCourse(favorite: FavoriteItem): MockCourse {
     },
     rating: 0,
     reviewCount: 0,
+    subscriberCount: 0,
+    viewerCount: 0,
     lessonCount: 0,
     durationHours: 0,
     level: 'Beginner',

@@ -5,6 +5,7 @@ import {
   ReconciliationReportStatus,
 } from '@smartklass/database';
 import { PrismaService } from '../../common/database/prisma.service';
+import { MetricsService } from '../../common/observability/metrics.service';
 import { StripeClientService } from '../billing/stripe-client.service';
 import { AdminAuditService, auditSnapshot } from './admin-audit.service';
 import { ReconciliationReportDto } from './dto/admin-risk.dto';
@@ -42,6 +43,7 @@ export class StripeReconciliationService {
     private readonly prisma: PrismaService,
     private readonly stripeClient: StripeClientService,
     private readonly audit: AdminAuditService,
+    private readonly metrics: MetricsService,
   ) {}
 
   async listReports(limit = 20): Promise<ReconciliationReportDto[]> {
@@ -140,10 +142,21 @@ export class StripeReconciliationService {
           completedAt: new Date(),
         },
       });
+
+      const discrepancyList = built.discrepancies as { items?: unknown[] };
+      const mismatchCount = Array.isArray(discrepancyList?.items)
+        ? discrepancyList.items.length
+        : 0;
+      if (mismatchCount > 0) {
+        this.metrics.increment('reconciliation_mismatches_total', {
+          count: String(mismatchCount),
+        });
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Reconciliation failed.';
       this.logger.error(`Reconciliation ${reportId} failed: ${message}`);
+      this.metrics.increment('reconciliation_failures_total');
 
       await this.prisma.reconciliationReport.update({
         where: { id: reportId },

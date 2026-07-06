@@ -7,10 +7,13 @@ import {
   SubscriptionStatus,
 } from '@smartklass/database';
 import { PrismaService } from '../../common/database/prisma.service';
+import { OutboxService } from '../../common/outbox/outbox.service';
 import { BillingFulfillmentService } from './billing-fulfillment.service';
 import { CreatorBillingService } from './creator-billing.service';
 import { MarketplaceAccountingService } from './marketplace-accounting.service';
 import { StripeWebhookService } from './stripe-webhook.service';
+import { MetricsService } from '../../common/observability/metrics.service';
+import { TracingService } from '../../common/observability/tracing.service';
 import { StripeClientService } from './stripe-client.service';
 
 describe('StripeWebhookService', () => {
@@ -70,6 +73,16 @@ describe('StripeWebhookService', () => {
     getWebhookSecret: jest.fn(() => 'whsec_test'),
   };
 
+  const tracingMock = {
+    withSpan: jest.fn((_name: string, fn: () => Promise<unknown>) => fn()),
+    startSpan: jest.fn(() => ({ end: jest.fn() })),
+  };
+
+  const metricsMock = {
+    increment: jest.fn(),
+    observe: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -81,6 +94,8 @@ describe('StripeWebhookService', () => {
         { provide: BillingFulfillmentService, useValue: fulfillmentMock },
         { provide: CreatorBillingService, useValue: creatorBillingMock },
         { provide: MarketplaceAccountingService, useValue: marketplaceAccountingMock },
+        { provide: MetricsService, useValue: metricsMock },
+        { provide: TracingService, useValue: tracingMock },
       ],
     }).compile();
 
@@ -312,6 +327,11 @@ describe('BillingFulfillmentService', () => {
     recordSaleFromPaymentMetadata: jest.fn(),
   };
 
+  const outboxMock = {
+    append: jest.fn(),
+    appendMany: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
     prismaMock.$transaction.mockImplementation(
@@ -324,6 +344,7 @@ describe('BillingFulfillmentService', () => {
         BillingFulfillmentService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: MarketplaceAccountingService, useValue: marketplaceAccountingMock },
+        { provide: OutboxService, useValue: outboxMock },
       ],
     }).compile();
 

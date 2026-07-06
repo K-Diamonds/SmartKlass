@@ -170,6 +170,7 @@ enum OutboxEventStatus {
   PROCESSING
   COMPLETED
   FAILED
+  DEAD_LETTER
 }
 
 enum JobRunStatus {
@@ -1014,6 +1015,32 @@ model OutboxEvent {
   @@index([status, createdAt])
   @@index([aggregateType, aggregateId])
   @@map("outbox_events")
+}
+
+model OutboxHandlerReceipt {
+  id            String   @id @default(cuid())
+  outboxEventId String   @map("outbox_event_id")
+  handlerKey    String   @map("handler_key") @db.VarChar(100)
+  processedAt   DateTime @default(now()) @map("processed_at")
+
+  @@unique([outboxEventId, handlerKey])
+  @@index([handlerKey, processedAt])
+  @@map("outbox_handler_receipts")
+}
+
+model AnalyticsSnapshot {
+  id                    String   @id @default(cuid())
+  snapshotDate          DateTime @map("snapshot_date") @db.Date
+  succeededPayments     Int      @default(0) @map("succeeded_payments")
+  creatorTransactions   Int      @default(0) @map("creator_transactions")
+  activeGrants          Int      @default(0) @map("active_grants")
+  grossMerchandiseCents Int      @default(0) @map("gross_merchandise_cents")
+  platformRevenueCents  Int      @default(0) @map("platform_revenue_cents")
+  metadata              Json?
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  @@unique([snapshotDate])
+  @@map("analytics_snapshots")
 }
 
 model JobRun {

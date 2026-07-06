@@ -42,7 +42,15 @@ export class OutboxService {
 
   async getFailedCount(): Promise<number> {
     return this.prisma.outboxEvent.count({
-      where: { status: OutboxEventStatus.FAILED },
+      where: {
+        status: { in: [OutboxEventStatus.FAILED, OutboxEventStatus.DEAD_LETTER] },
+      },
+    });
+  }
+
+  async getDeadLetterCount(): Promise<number> {
+    return this.prisma.outboxEvent.count({
+      where: { status: OutboxEventStatus.DEAD_LETTER },
     });
   }
 }

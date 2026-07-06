@@ -3,10 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { CourseStatus } from '@smartklass/database';
 import { AuthenticatedUser } from '../../common/auth/interfaces/authenticated-user.interface';
 import { PrismaService } from '../../common/database/prisma.service';
 import {
   BecomeCreatorDto,
+  CreatorDirectoryItemDto,
   CreatorProfileDto,
   CreatorPublicProfileDto,
   UpdateCreatorProfileDto,
@@ -149,6 +151,38 @@ export class CreatorsService {
       isVerified: creatorProfile.isVerified,
       courseCount: creatorProfile._count.courses,
     };
+  }
+
+  async listDirectory(): Promise<CreatorDirectoryItemDto[]> {
+    const creators = await this.prisma.creatorProfile.findMany({
+      where: {
+        deletedAt: null,
+        isActive: true,
+        courses: {
+          some: {
+            deletedAt: null,
+            status: CourseStatus.PUBLISHED,
+          },
+        },
+      },
+      orderBy: { displayName: 'asc' },
+      include: {
+        _count: {
+          select: {
+            courses: {
+              where: { deletedAt: null, status: CourseStatus.PUBLISHED },
+            },
+          },
+        },
+      },
+    });
+
+    return creators.map((creator) => ({
+      slug: creator.slug,
+      displayName: creator.displayName,
+      avatarUrl: creator.avatarUrl,
+      courseCount: creator._count.courses,
+    }));
   }
 
   private toCreatorProfile(creatorProfile: {

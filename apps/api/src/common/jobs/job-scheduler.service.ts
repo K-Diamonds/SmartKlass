@@ -9,6 +9,8 @@ const DAILY_JOBS = [
   'cleanup_stale_job_runs',
 ] as const;
 
+const FREQUENT_JOBS = ['publish_scheduled_versions'] as const;
+
 @Injectable()
 export class JobSchedulerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(JobSchedulerService.name);
@@ -30,6 +32,9 @@ export class JobSchedulerService implements OnModuleInit, OnModuleDestroy {
     const pollMs =
       this.configService.get<number>('worker.dailyJobPollMs') ?? 60_000;
     this.interval = setInterval(() => {
+      void this.tickFrequentJobs().catch((error) => {
+        this.logger.error('Frequent job tick failed', error);
+      });
       void this.tickDailyJobs().catch((error) => {
         this.logger.error('Daily job tick failed', error);
       });
@@ -40,6 +45,16 @@ export class JobSchedulerService implements OnModuleInit, OnModuleDestroy {
   onModuleDestroy() {
     if (this.interval) {
       clearInterval(this.interval);
+    }
+  }
+
+  private async tickFrequentJobs() {
+    for (const jobName of FREQUENT_JOBS) {
+      try {
+        await this.jobs.run(jobName);
+      } catch {
+        // Logged in JobRunnerService
+      }
     }
   }
 

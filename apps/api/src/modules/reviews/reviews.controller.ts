@@ -7,7 +7,8 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { Public } from '../../common/auth';
+import { CurrentUser, Public } from '../../common/auth';
+import type { AuthenticatedUser } from '../../common/auth/interfaces/authenticated-user.interface';
 import {
   IdParamDto,
   PaginatedResultDto,
@@ -35,17 +36,19 @@ export class ReviewsController {
 
   @Post('courses/:courseId/reviews')
   create(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('courseId') courseId: string,
     @Body() dto: CreateReviewDto,
   ): Promise<ReviewDto> {
-    return this.reviewsService.create(courseId, dto);
+    return this.reviewsService.create(user, courseId, dto);
   }
 
   @Patch('reviews/:id')
   update(
+    @CurrentUser() user: AuthenticatedUser,
     @Param() params: IdParamDto,
     @Body() dto: UpdateReviewDto,
   ): Promise<ReviewDto> {
-    return this.reviewsService.update(params.id, dto);
+    return this.reviewsService.update(user, params.id, dto);
   }
 }

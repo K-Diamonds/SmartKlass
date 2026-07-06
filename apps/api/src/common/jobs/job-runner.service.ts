@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { JobRunStatus, Prisma, SubscriptionStatus } from '@smartklass/database';
 import { PrismaService } from '../database/prisma.service';
+import { MetricsService } from '../observability/metrics.service';
 import { MarketplaceAccountingService } from '../../modules/billing/marketplace-accounting.service';
+import { CourseVersioningService } from '../../modules/courses/course-versioning.service';
+import { AnalyticsService } from '../analytics/analytics.service';
 
 export type JobHandler = () => Promise<Record<string, unknown> | void>;
 
@@ -13,6 +16,9 @@ export class JobRunnerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly marketplaceAccounting: MarketplaceAccountingService,
+    private readonly courseVersioning: CourseVersioningService,
+    private readonly analytics: AnalyticsService,
+    private readonly metrics: MetricsService,
   ) {
     this.registerBuiltInJobs();
   }
@@ -41,6 +47,7 @@ export class JobRunnerService {
           metadata: (metadata ?? undefined) as Prisma.InputJsonValue | undefined,
         },
       });
+      this.metrics.increment('job_runs_completed_total', { job: jobName });
       this.logger.log(`Job ${jobName} completed`);
     } catch (error) {
       const message =
@@ -53,6 +60,7 @@ export class JobRunnerService {
           errorMessage: message,
         },
       });
+      this.metrics.increment('job_failures_total', { job: jobName });
       this.logger.error(`Job ${jobName} failed: ${message}`);
       throw error;
     }
@@ -69,6 +77,9 @@ export class JobRunnerService {
     );
     this.register('generate_analytics_snapshot', () =>
       this.generateAnalyticsSnapshot(),
+    );
+    this.register('publish_scheduled_versions', () =>
+      this.publishScheduledVersions(),
     );
     this.register('cleanup_stale_job_runs', () => this.cleanupStaleJobRuns());
   }
@@ -103,20 +114,23 @@ export class JobRunnerService {
   }
 
   private async generateAnalyticsSnapshot() {
-    const [payments, transactions, grants] = await Promise.all([
-      this.prisma.payment.count({
-        where: { status: 'SUCCEEDED' },
-      }),
-      this.prisma.creatorTransaction.count(),
-      this.prisma.courseAccess.count({ where: { revokedAt: null } }),
-    ]);
-
+    await this.analytics.recordEvent({});
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const snapshot = await this.prisma.analyticsSnapshot.findUnique({
+      where: { snapshotDate: today },
+    });
     return {
       snapshotAt: new Date().toISOString(),
-      succeededPayments: payments,
-      creatorTransactions: transactions,
-      activeGrants: grants,
+      succeededPayments: snapshot?.succeededPayments ?? 0,
+      creatorTransactions: snapshot?.creatorTransactions ?? 0,
+      activeGrants: snapshot?.activeGrants ?? 0,
     };
+  }
+
+  private async publishScheduledVersions() {
+    const published = await this.courseVersioning.publishDueScheduledVersions();
+    return { publishedCount: published };
   }
 
   private async cleanupStaleJobRuns() {

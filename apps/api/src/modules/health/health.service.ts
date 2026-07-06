@@ -60,6 +60,10 @@ export class HealthService {
     return this.metrics.snapshot();
   }
 
+  getPrometheusMetrics(): string {
+    return this.metrics.toPrometheus();
+  }
+
   private async checkDatabase(): Promise<'ok' | 'down'> {
     try {
       await this.prisma.$queryRaw`SELECT 1`;

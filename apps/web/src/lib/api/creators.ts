@@ -46,3 +46,14 @@ export function updateMyCreatorProfile(
     body: JSON.stringify(input),
   });
 }
+
+export type CreatorDirectoryItem = {
+  slug: string;
+  displayName: string;
+  avatarUrl: string | null;
+  courseCount: number;
+};
+
+export function listCreatorDirectory(): Promise<CreatorDirectoryItem[]> {
+  return apiFetch<CreatorDirectoryItem[]>('/creators/directory');
+}

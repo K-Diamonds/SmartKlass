@@ -83,3 +83,10 @@ export class CreatorPublicProfileDto {
   isVerified!: boolean;
   courseCount!: number;
 }
+
+export class CreatorDirectoryItemDto {
+  slug!: string;
+  displayName!: string;
+  avatarUrl!: string | null;
+  courseCount!: number;
+}

@@ -8,6 +8,17 @@
 | `GET /api/v1/health/live` | Process alive | `livenessProbe` |
 | `GET /api/v1/health/ready` | DB + outbox failed < 100 | `readinessProbe` |
 | `GET /api/v1/health/metrics` | In-process counters/histograms | Scraping (dev) |
+| `GET /api/v1/health/metrics/prometheus` | Prometheus text exposition | Production scraping |
+
+## Production runbooks
+
+| Runbook | Path |
+|---------|------|
+| Stripe webhook failure | [stripe-webhook-failure.md](./runbooks/stripe-webhook-failure.md) |
+| Payout dispute | [payout-dispute.md](./runbooks/payout-dispute.md) |
+| Outbox backlog | [outbox-backlog.md](./runbooks/outbox-backlog.md) |
+| Failed reconciliation | [failed-reconciliation.md](./runbooks/failed-reconciliation.md) |
+| Migration rollback | [database-migration-rollback.md](./runbooks/database-migration-rollback.md) |
 
 ## Structured logs
 

@@ -9,7 +9,6 @@ import { getPublishedCourseById } from '@/lib/api/courses';
 import { detailToDisplayCourse } from '@/lib/catalog/course-display';
 import { CourseDetailView } from '@/components/course/CourseDetailView';
 import type { ModuleItem } from '@/components/player/LessonPlayer';
-import { getCourseById } from '@/lib/mock-data';
 import { studioCourseToMockCourse, studioCourseToModuleItems } from '@/lib/studio/map-preview';
 import {
   apiAccessPlanToStudio,
@@ -95,15 +94,6 @@ export function CourseDetailLoader({ courseId, preview = false }: CourseDetailLo
         }
 
         setMissing(true);
-        return;
-      }
-
-      const mockCourse = getCourseById(courseId);
-      if (!cancelled && mockCourse) {
-        setLoaded({
-          course: mockCourse,
-          isCreatorPreview: false,
-        });
         return;
       }
 

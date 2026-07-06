@@ -10,6 +10,7 @@ import {
   RefundRequestStatus,
 } from '@smartklass/database';
 import { PrismaService } from '../../common/database/prisma.service';
+import { MetricsService } from '../../common/observability/metrics.service';
 import { MarketplaceAccountingService } from '../billing/marketplace-accounting.service';
 import { StripeClientService } from '../billing/stripe-client.service';
 import { AdminAuditService, auditSnapshot } from './admin-audit.service';
@@ -27,6 +28,7 @@ export class RefundWorkflowService {
     private readonly stripeClient: StripeClientService,
     private readonly marketplaceAccounting: MarketplaceAccountingService,
     private readonly audit: AdminAuditService,
+    private readonly metrics: MetricsService,
   ) {}
 
   async list(query: {
@@ -298,6 +300,7 @@ export class RefundWorkflowService {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Stripe refund failed.';
+      this.metrics.increment('refund_failures_total');
       await this.prisma.refundRequest.update({
         where: { id },
         data: {

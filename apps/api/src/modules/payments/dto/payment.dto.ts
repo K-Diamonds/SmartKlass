@@ -11,6 +11,16 @@ export class PaymentDto {
   createdAt!: string;
 }
 
+export class PaymentDetailDto extends PaymentDto {
+  stripePaymentIntentId!: string | null;
+  purchase!: {
+    id: string;
+    courseId: string;
+    courseTitle: string;
+    courseSlug: string;
+  } | null;
+}
+
 export class ListPaymentsQueryDto extends PaginationQueryDto {}
 
 export class StripeWebhookDto {

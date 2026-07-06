@@ -23,6 +23,9 @@ export class RequestLoggingMiddleware implements NestMiddleware {
         method,
         status: String(status),
       });
+      if (status >= 500) {
+        this.metrics.increment('http_errors_total', { method });
+      }
       this.metrics.observe('http_request_duration_ms', duration, { method });
 
       this.logger.log(

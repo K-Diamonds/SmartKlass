@@ -5,6 +5,7 @@ import { SlugParamDto } from '../../common/dto/pagination.dto';
 import { CreatorsService } from './creators.service';
 import {
   BecomeCreatorDto,
+  CreatorDirectoryItemDto,
   CreatorProfileDto,
   CreatorPublicProfileDto,
   UpdateCreatorProfileDto,
@@ -35,6 +36,12 @@ export class CreatorsController {
     @Body() dto: UpdateCreatorProfileDto,
   ): Promise<CreatorProfileDto> {
     return this.creatorsService.updateMyProfile(user, dto);
+  }
+
+  @Public()
+  @Get('directory')
+  listDirectory(): Promise<CreatorDirectoryItemDto[]> {
+    return this.creatorsService.listDirectory();
   }
 
   @Public()

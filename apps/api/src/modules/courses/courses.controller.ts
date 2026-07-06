@@ -34,6 +34,10 @@ import {
 import { CoursesService } from './courses.service';
 import { CourseVersioningService } from './course-versioning.service';
 import {
+  DiffVersionsQueryDto,
+  ScheduleVersionDto,
+} from './dto/course-version.dto';
+import {
   CourseDetailDto,
   CourseSummaryDto,
   CreateCourseDto,
@@ -197,6 +201,35 @@ export class CoursesController {
     @Param('versionId') versionId: string,
   ) {
     return this.courseVersioning.rollback(courseId, versionId);
+  }
+
+  @UseGuards(CreatorGuard)
+  @Post(':id/versions/:versionId/schedule')
+  scheduleVersion(
+    @CreatorProfileId() _creatorProfileId: string,
+    @Param('id') courseId: string,
+    @Param('versionId') versionId: string,
+    @Body() dto: ScheduleVersionDto,
+  ) {
+    return this.courseVersioning.scheduleVersion(
+      courseId,
+      versionId,
+      new Date(dto.scheduledFor),
+    );
+  }
+
+  @UseGuards(CreatorGuard)
+  @Get(':id/versions/diff')
+  diffVersions(
+    @CreatorProfileId() _creatorProfileId: string,
+    @Param('id') courseId: string,
+    @Query() query: DiffVersionsQueryDto,
+  ) {
+    return this.courseVersioning.diffVersions(
+      courseId,
+      query.fromVersionId,
+      query.toVersionId,
+    );
   }
 
   @UseGuards(CreatorGuard)

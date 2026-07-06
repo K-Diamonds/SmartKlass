@@ -1,10 +1,12 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { FilterSelect } from '@/components/ui/FilterSelect';
 import { SUPPORTED_COURSE_LANGUAGES } from '@smartklass/shared';
-import { mockCategories, mockCreators } from '@/lib/mock-data';
+import { listCategories } from '@/lib/api/categories';
+import { listCreatorDirectory } from '@/lib/api/creators';
 import { cn } from '@/lib/utils';
 
 type DiscoverFiltersProps = {
@@ -37,10 +39,50 @@ export function DiscoverFilters({ className }: DiscoverFiltersProps) {
   const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [categories, setCategories] = useState<string[]>(['All']);
+  const [creators, setCreators] = useState<
+    { handle: string; displayName: string }[]
+  >([]);
 
   const category = searchParams.get('category') ?? 'All';
   const language = searchParams.get('language') ?? 'All';
   const creator = searchParams.get('creator') ?? 'All';
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadFilters() {
+      try {
+        const [categoryRows, creatorRows] = await Promise.all([
+          listCategories(),
+          listCreatorDirectory(),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        setCategories(['All', ...categoryRows.map((row) => row.name)]);
+        setCreators(
+          creatorRows.map((row) => ({
+            handle: row.slug,
+            displayName: row.displayName,
+          })),
+        );
+      } catch {
+        if (!cancelled) {
+          setCategories(['All']);
+          setCreators([]);
+        }
+      }
+    }
+
+    void loadFilters();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const updateFilter = (key: string, value: string) => {
     router.push(buildDiscoverUrl(searchParams, { [key]: value }));
@@ -59,7 +101,7 @@ export function DiscoverFilters({ className }: DiscoverFiltersProps) {
             onChange={(value) => updateFilter('category', value)}
             selectClassName={discoverSelectClassName}
           >
-            {mockCategories.map((cat) => (
+            {categories.map((cat) => (
               <option key={cat} value={cat}>
                 {cat === 'All' ? t('discover.filters.all') : cat}
               </option>
@@ -97,7 +139,7 @@ export function DiscoverFilters({ className }: DiscoverFiltersProps) {
             selectClassName={discoverSelectClassName}
           >
             <option value="All">{t('discover.filters.all')}</option>
-            {mockCreators.map((item) => (
+            {creators.map((item) => (
               <option key={item.handle} value={item.handle}>
                 {item.displayName}
               </option>

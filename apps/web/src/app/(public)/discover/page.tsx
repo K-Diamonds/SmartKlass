@@ -6,16 +6,18 @@ import { useTranslation } from 'react-i18next';
 import { CourseCard } from '@/components';
 import { DiscoverFilters } from '@/components/catalog/DiscoverFilters';
 import { listPublishedCourses } from '@/lib/api/courses';
+import { listCreatorDirectory } from '@/lib/api/creators';
 import { summaryToDisplayCourse } from '@/lib/catalog/course-display';
-import { filterCatalogCourses, getCreatorByHandle, type CatalogSort } from '@/lib/mock-data';
 import type { MockCourse } from '@/lib/mock-data';
+import type { CatalogSort } from '@/lib/mock-data';
 
 function DiscoverContent() {
   const { t } = useTranslation();
   const searchParams = useSearchParams();
   const [apiCourses, setApiCourses] = useState<MockCourse[]>([]);
-  const [usedApi, setUsedApi] = useState(false);
+  const [creatorNames, setCreatorNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const sort = (
     searchParams.get('sort') === 'recent'
@@ -32,8 +34,31 @@ function DiscoverContent() {
   useEffect(() => {
     let cancelled = false;
 
+    void listCreatorDirectory()
+      .then((creators) => {
+        if (!cancelled) {
+          setCreatorNames(
+            Object.fromEntries(
+              creators.map((item) => [item.slug, item.displayName]),
+            ),
+          );
+        }
+      })
+      .catch(() => {
+        // Creator labels are optional for the page header.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
     async function load() {
       setLoading(true);
+      setError(false);
       try {
         const result = await listPublishedCourses({
           limit: 48,
@@ -49,14 +74,16 @@ function DiscoverContent() {
         if (!cancelled) {
           setApiCourses(
             result.items.map((course) =>
-              summaryToDisplayCourse(course, { category: category !== 'All' ? category : 'General' }),
+              summaryToDisplayCourse(course, {
+                category: category !== 'All' ? category : 'General',
+              }),
             ),
           );
-          setUsedApi(true);
         }
       } catch {
         if (!cancelled) {
-          setUsedApi(false);
+          setApiCourses([]);
+          setError(true);
         }
       } finally {
         if (!cancelled) {
@@ -71,15 +98,8 @@ function DiscoverContent() {
     };
   }, [query, category, language, creator, sort]);
 
-  const filtered = useMemo(() => {
-    if (usedApi) {
-      return apiCourses;
-    }
-    return filterCatalogCourses({ category, sort, query, language, creator });
-  }, [usedApi, apiCourses, category, sort, query, language, creator]);
+  const filtered = useMemo(() => apiCourses, [apiCourses]);
 
-  const activeCreator =
-    creator !== 'All' ? getCreatorByHandle(creator) : undefined;
   const hasCreatorFilter = creator !== 'All';
   const isRecent = sort === 'recent';
   const isCertificates = sort === 'certificates';
@@ -99,7 +119,7 @@ function DiscoverContent() {
         ? 'discover.subtitleRecent'
         : 'discover.subtitleExplore';
 
-  const creatorName = activeCreator?.displayName ?? creator;
+  const creatorName = creatorNames[creator] ?? creator;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -126,6 +146,12 @@ function DiscoverContent() {
       {query && (
         <p className="mt-6 text-sm text-muted-foreground">
           {t('discover.results', { count: filtered.length, query })}
+        </p>
+      )}
+
+      {error && (
+        <p className="mt-6 text-sm text-destructive">
+          Could not load courses. Check that the API is running.
         </p>
       )}
 

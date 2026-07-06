@@ -7,7 +7,8 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { Public } from '../../common/auth';
+import { CurrentUser, Public } from '../../common/auth';
+import type { AuthenticatedUser } from '../../common/auth/interfaces/authenticated-user.interface';
 import {
   IdParamDto,
   PaginatedResultDto,
@@ -42,12 +43,18 @@ export class CommentsController {
   }
 
   @Post('comments')
-  create(@Body() dto: CreateCommentDto): Promise<CommentDto> {
-    return this.commentsService.create(dto);
+  create(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateCommentDto,
+  ): Promise<CommentDto> {
+    return this.commentsService.create(user, dto);
   }
 
   @Delete('comments/:id')
-  remove(@Param() params: IdParamDto): Promise<{ message: string }> {
-    return this.commentsService.remove(params.id);
+  remove(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param() params: IdParamDto,
+  ): Promise<{ message: string }> {
+    return this.commentsService.remove(user, params.id);
   }
 }
