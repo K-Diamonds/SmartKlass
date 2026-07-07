@@ -65,13 +65,42 @@ pnpm setup          # install, start MySQL, migrate, seed
 pnpm dev            # web :3000 + api :4000
 ```
 
-| Service | URL |
-|---------|-----|
+| Service | URL (local) |
+|---------|-------------|
 | Web | http://localhost:3000 |
 | API | http://localhost:4000/api/v1 |
 | Health | http://localhost:4000/api/v1/health |
 
-**Production API:** [smart-klass-api.vercel.app](https://smart-klass-api.vercel.app/api/v1/health) — see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Vercel + GitHub CI/CD (same pattern as CreatorOS / Kortex).
+---
+
+## Production (Vercel)
+
+SmartKlass runs on **two Vercel projects** from this monorepo — the same pattern as CreatorOS / Kortex. Pushes to `main` run CI, then GitHub Actions deploys both apps. Vercel Git auto-deploy is disabled so failed CI never ships.
+
+| App | Vercel project | URL |
+|-----|----------------|-----|
+| Web (`apps/web`) | `smart-klass` | [smart-klass.vercel.app](https://smart-klass.vercel.app) |
+| API (`apps/api`) | `smart-klass-api` | [smart-klass-api.vercel.app](https://smart-klass-api.vercel.app) |
+
+| Endpoint | URL |
+|----------|-----|
+| Homepage | https://smart-klass.vercel.app |
+| API base | https://smart-klass-api.vercel.app/api/v1 |
+| Health | https://smart-klass-api.vercel.app/api/v1/health/live |
+
+**Deploy flow:** push to `main` → [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (lint, test, build) → `deploy-vercel` + `deploy-vercel-web`.
+
+**One-time setup** (after filling `apps/api/.env.vercel` and `apps/web/.env.vercel` from the `.example` files):
+
+```bash
+./scripts/sync-github-env.sh --repo K-Diamonds/SmartKlass
+./scripts/setup-vercel-api.sh
+./scripts/setup-vercel-web.sh
+./scripts/push-vercel-env.sh production      # API runtime env
+./scripts/push-vercel-web-env.sh production # Web runtime env
+```
+
+Full runbook: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 
 ### Seed accounts
 
@@ -124,6 +153,7 @@ All seed users share the password **`password123`**:
 ## Documentation
 
 - [Architecture overview](docs/architecture/overview.md)
+- [Deployment (Vercel + Docker)](docs/DEPLOYMENT.md)
 - [Product vision](docs/product/vision.md)
 - [API reference](docs/api/README.md)
 - [ADRs](docs/adr/)
