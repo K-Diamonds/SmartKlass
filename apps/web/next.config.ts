@@ -13,6 +13,11 @@ const nextConfig: NextConfig = {
         hostname: 'img.youtube.com',
       },
       {
+        protocol: 'https',
+        hostname: 'smart-klass-api.vercel.app',
+        pathname: '/uploads/**',
+      },
+      {
         protocol: 'http',
         hostname: 'localhost',
         port: '4000',

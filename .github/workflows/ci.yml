@@ -134,3 +134,67 @@ jobs:
           done
           echo "Health check failed after retries"
           exit 1
+
+  deploy-vercel-web:
+    name: Deploy Web to Vercel
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [monorepo]
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEB_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Vercel web deploy secrets
+        run: |
+          test -n "$VERCEL_ORG_ID" || (echo "Missing VERCEL_ORG_ID — run scripts/sync-github-env.sh" && exit 1)
+          test -n "$VERCEL_PROJECT_ID" || (echo "Missing VERCEL_WEB_PROJECT_ID — run scripts/sync-github-env.sh" && exit 1)
+          test -n "${{ secrets.VERCEL_TOKEN }}" || (echo "Missing VERCEL_TOKEN" && exit 1)
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Point Vercel project at apps/web
+        run: |
+          curl -fsS -X PATCH \
+            "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}?teamId=${VERCEL_ORG_ID}" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"rootDirectory":"apps/web","framework":"nextjs"}'
+
+      - name: Pull Vercel project settings
+        run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+
+      - name: Deploy to production
+        id: deploy
+        run: |
+          url=$(vercel deploy --prod --token="${{ secrets.VERCEL_TOKEN }}")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Deployed to $url"
+
+      - name: Smoke test web homepage
+        run: |
+          url="https://smart-klass.vercel.app"
+          for attempt in 1 2 3 4 5 6 8 10; do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" "$url" || true)
+            echo "attempt $attempt: HTTP $code"
+            if [ "$code" = "200" ]; then
+              echo "Homepage OK"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Homepage check failed after retries"
+          exit 1

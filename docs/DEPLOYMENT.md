@@ -2,17 +2,21 @@
 
 SmartKlass supports **Vercel** (API) and **Docker** (self-hosted / local). The pattern matches [CreatorOS](https://github.com/KOfferman/CreatorOS) and [Kortex](https://github.com/K-Diamonds/Kortex): GitHub Actions runs CI, then deploys to Vercel after tests pass. Vercel Git auto-deploy is disabled so failed CI never ships.
 
-## Vercel (NestJS API)
+## Vercel (NestJS API + Next.js Web)
 
-**Live API:** [https://smart-klass-api.vercel.app](https://smart-klass-api.vercel.app)  
+| App | Vercel project | URL |
+|-----|----------------|-----|
+| API (`apps/api`) | `smart-klass-api` | [https://smart-klass-api.vercel.app](https://smart-klass-api.vercel.app) |
+| Web (`apps/web`) | `smart-klass` | [https://smart-klass.vercel.app](https://smart-klass.vercel.app) |
+
 **Health:** [https://smart-klass-api.vercel.app/api/v1/health](https://smart-klass-api.vercel.app/api/v1/health)
 
-The Vercel project `smart-klass-api` deploys `apps/api` (NestJS) from the monorepo root. Web (`apps/web`) can be added as a second Vercel project later.
+Both projects deploy from the monorepo root via GitHub Actions. Vercel Git auto-deploy is disabled (`vercel.json`).
 
 ### 1. Connect Vercel to GitHub
 
-1. Vercel → **smart-klass-api** → linked to `K-Diamonds/SmartKlass` (`main`)
-2. Root directory: `apps/api` (set automatically by CI / `scripts/setup-vercel-api.sh`)
+1. Vercel → **smart-klass-api** and **smart-klass** → linked to `K-Diamonds/SmartKlass` (`main`)
+2. Root directories: `apps/api` and `apps/web` (set by CI / setup scripts)
 3. Root [`vercel.json`](../vercel.json) sets `"git.deploymentEnabled": false`
 
 ### 2. Sync env → GitHub
@@ -46,14 +50,15 @@ Required on Vercel (Production):
 | `NODE_ENV` | `production` |
 | `WORKER_ENABLED` | `false` (serverless — no in-process outbox worker) |
 | `API_URL` | `https://smart-klass-api.vercel.app` |
-| `CORS_ALLOW_ORIGINS` | `https://your-web.vercel.app,http://localhost:3000` |
+| `CORS_ALLOW_ORIGINS` | `https://smart-klass.vercel.app,http://localhost:3000` |
 
 ### 4. Deploy flow
 
 **Push to `main`** → [`.github/workflows/ci.yml`](../.github/workflows/ci.yml):
 
 1. `monorepo` — lint, typecheck, test, build (`CI_LITE=true`, no private DB)
-2. `deploy-vercel` — `vercel deploy --prod` + smoke test `/api/v1/health`
+2. `deploy-vercel` — API `vercel deploy --prod` + smoke test `/api/v1/health`
+3. `deploy-vercel-web` — Web `vercel deploy --prod` + smoke test homepage
 
 Manual redeploy: **Actions → Redeploy Vercel → Run workflow**
 
@@ -61,6 +66,8 @@ Manual redeploy: **Actions → Redeploy Vercel → Run workflow**
 
 ```bash
 ./scripts/setup-vercel-api.sh
+./scripts/setup-vercel-web.sh
+./scripts/push-vercel-web-env.sh production
 ```
 
 ### Notes
