@@ -89,10 +89,15 @@ for key, value in manifest.get("productionDefaults", {}).items():
 vercel_creds = parse_env_file(root / "apps/api/.env.vercel")
 web_vercel_creds = parse_env_file(root / "apps/web/.env.vercel")
 for key in manifest.get("deploySecrets", []):
+    if key == "VERCEL_WEB_PROJECT_ID":
+        web_project_id = web_vercel_creds.get("VERCEL_WEB_PROJECT_ID") or web_vercel_creds.get(
+            "VERCEL_PROJECT_ID"
+        )
+        if web_project_id:
+            env[key] = web_project_id
+        continue
     if key in vercel_creds and vercel_creds[key]:
         env[key] = vercel_creds[key]
-    if key in web_vercel_creds and web_vercel_creds[key]:
-        env[key] = web_vercel_creds[key]
 
 local_only = set(manifest.get("localOnly", []))
 deploy_env = {k: v for k, v in env.items() if k not in local_only and v}
