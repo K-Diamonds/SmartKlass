@@ -86,6 +86,11 @@ if override.exists():
 for key, value in manifest.get("productionDefaults", {}).items():
     env.setdefault(key, value)
 
+# Production URLs must win over localhost values in .env when syncing to GitHub
+for key, value in manifest.get("productionDefaults", {}).items():
+    if key in manifest.get("variables", []):
+        env[key] = value
+
 vercel_creds = parse_env_file(root / "apps/api/.env.vercel")
 web_vercel_creds = parse_env_file(root / "apps/web/.env.vercel")
 for key in manifest.get("deploySecrets", []):

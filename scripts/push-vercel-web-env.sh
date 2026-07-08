@@ -69,6 +69,12 @@ if override.exists():
 for key, value in manifest.get("productionDefaults", {}).items():
     env.setdefault(key, value)
 
+# Production deploy must not inherit localhost values from local .env
+if target == "production":
+    for key in manifest.get("vercelWeb", {}).get("deployVariables", []):
+        if key in manifest.get("productionDefaults", {}):
+            env[key] = manifest["productionDefaults"][key]
+
 web_keys = manifest.get("vercelWeb", {}).get("deployVariables", [])
 api = "https://api.vercel.com"
 query = f"?teamId={team_id}" if team_id else ""
@@ -90,18 +96,37 @@ def request(method: str, path: str, payload=None):
         raise RuntimeError(f"Vercel API {method} {path} failed: {detail}") from exc
 
 
-synced = 0
-for key in web_keys:
-    value = env.get(key, "")
-    if not value:
-        continue
+def list_env():
+    return request("GET", f"/v9/projects/{project_id}/env").get("envs", [])
+
+
+def upsert_env(key: str, value: str):
     payload = {
         "key": key,
         "value": value,
         "type": "plain",
         "target": [target],
     }
-    request("POST", f"/v10/projects/{project_id}/env", payload)
+    existing = next((e for e in list_env() if e.get("key") == key), None)
+    if existing:
+        request(
+            "PATCH",
+            f"/v9/projects/{project_id}/env/{existing['id']}",
+            {
+                "value": value,
+                "target": [target],
+            },
+        )
+    else:
+        request("POST", f"/v10/projects/{project_id}/env", payload)
+
+
+synced = 0
+for key in web_keys:
+    value = env.get(key, "")
+    if not value:
+        continue
+    upsert_env(key, value)
     print(f"  vercel env {key}")
     synced += 1
 
