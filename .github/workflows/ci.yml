@@ -33,6 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CI_LITE: "true"
+      NODE_ENV: development
       JWT_SECRET: dev-only-ci-placeholder-must-be-32-chars-min
       DATABASE_URL: mysql://ci:ci@127.0.0.1:3306/smartklass_ci
     steps:
