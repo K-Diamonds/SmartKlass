@@ -578,61 +578,50 @@ async function main() {
   });
 
   if (!existingPurchase) {
-    let payment = await prisma.payment.findFirst({
-      where: { stripePaymentIntentId: 'pi_seed_pasta_purchase_001' },
-    });
-    if (!payment) {
-      payment = await prisma.payment.create({
-        data: {
-          userId: learner.id,
-          status: PaymentStatus.SUCCEEDED,
-          amountCents: pastaLifetime.priceCents,
-          currency: 'USD',
-          stripePaymentIntentId: 'pi_seed_pasta_purchase_001',
-          paidAt: new Date('2026-03-01'),
-        },
-      });
-    }
-
-    const purchaseForPayment = await prisma.userPurchase.findFirst({
-      where: { paymentId: payment.id },
+    const payment = await prisma.payment.create({
+      data: {
+        userId: learner.id,
+        status: PaymentStatus.SUCCEEDED,
+        amountCents: pastaLifetime.priceCents,
+        currency: 'USD',
+        stripePaymentIntentId: 'pi_seed_pasta_purchase_001',
+        paidAt: new Date('2026-03-01'),
+      },
     });
 
-    if (!purchaseForPayment) {
-      const purchase = await prisma.userPurchase.create({
-        data: {
-          userId: learner.id,
-          courseId: pastaCourse.id,
-          accessPlanId: pastaLifetime.id,
-          paymentId: payment.id,
-          status: PurchaseStatus.COMPLETED,
-          amountCents: pastaLifetime.priceCents,
-          currency: 'USD',
-          purchasedAt: new Date('2026-03-01'),
-        },
-      });
+    const purchase = await prisma.userPurchase.create({
+      data: {
+        userId: learner.id,
+        courseId: pastaCourse.id,
+        accessPlanId: pastaLifetime.id,
+        paymentId: payment.id,
+        status: PurchaseStatus.COMPLETED,
+        amountCents: pastaLifetime.priceCents,
+        currency: 'USD',
+        purchasedAt: new Date('2026-03-01'),
+      },
+    });
 
-      await prisma.courseAccess.create({
-        data: {
-          userId: learner.id,
-          courseId: pastaCourse.id,
-          accessPlanId: pastaLifetime.id,
-          userPurchaseId: purchase.id,
-          startsAt: new Date('2026-03-01'),
-        },
-      });
+    await prisma.courseAccess.create({
+      data: {
+        userId: learner.id,
+        courseId: pastaCourse.id,
+        accessPlanId: pastaLifetime.id,
+        userPurchaseId: purchase.id,
+        startsAt: new Date('2026-03-01'),
+      },
+    });
 
-      await prisma.notification.create({
-        data: {
-          userId: learner.id,
-          type: NotificationType.PURCHASE_CONFIRMED,
-          title: 'Purchase confirmed',
-          body: `You now have lifetime access to "${pastaCourse.title}".`,
-          data: { courseId: pastaCourse.id, accessPlanId: pastaLifetime.id },
-          readAt: new Date('2026-03-01'),
-        },
-      });
-    }
+    await prisma.notification.create({
+      data: {
+        userId: learner.id,
+        type: NotificationType.PURCHASE_CONFIRMED,
+        title: 'Purchase confirmed',
+        body: `You now have lifetime access to "${pastaCourse.title}".`,
+        data: { courseId: pastaCourse.id, accessPlanId: pastaLifetime.id },
+        readAt: new Date('2026-03-01'),
+      },
+    });
   }
 
   // Sample active subscription for second learner

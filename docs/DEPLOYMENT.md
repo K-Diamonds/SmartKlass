@@ -76,3 +76,4 @@ Manual redeploy: **Actions → Redeploy Vercel → Run workflow**
 - **Uploads:** Avatar uploads use local disk in dev; use object storage in production serverless.
 - **Stripe webhooks:** Point to `https://smart-klass-api.vercel.app/api/v1/stripe/webhook`
 - **MySQL (Hostinger / remote):** Allow external connections from Vercel egress IPs or use a connection pooler. If Prisma fails to connect, add SSL params to `DATABASE_URL` per your host docs.
+- **Database seed:** Run `pnpm db:seed` for **local/dev only**. Production already has its own data — do not seed production unless you are initializing an empty database. Empty UI on Vercel is usually `NEXT_PUBLIC_API_URL` pointing at localhost, not missing seed data.
