@@ -34,6 +34,9 @@ const MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024;
 type CourseWithCreator = Prisma.CourseGetPayload<{
   include: {
     creatorProfile: { select: { slug: true; displayName: true } };
+    categories: {
+      include: { category: { select: { name: true } } };
+    };
     modules: {
       where: { deletedAt: null };
       include: { lessons: { where: { deletedAt: null } } };
@@ -129,7 +132,9 @@ export class CoursesService {
     ]);
 
     return {
-      items: courses.map((course) => this.toCourseSummary(course)),
+      items: courses.map((course) =>
+        this.toCourseSummary(course, this.getPrimaryCategoryName(course)),
+      ),
       meta: {
         page,
         limit,
@@ -443,15 +448,20 @@ export class CoursesService {
     } satisfies Prisma.CourseInclude;
   }
 
+  private getPrimaryCategoryName(course: {
+    categories?: { category: { name: string } }[];
+  }): string | null {
+    const firstCategory = course.categories?.[0];
+    return firstCategory?.category.name ?? null;
+  }
+
   private toCourseSummary(
     course: Prisma.CourseGetPayload<{
       include: {
         creatorProfile: { select: { slug: true; displayName: true } };
-        categories?: {
-          include: { category: { select: { name: true } } };
-        };
       };
     }>,
+    categoryName: string | null = null,
   ): CourseSummaryDto {
     return {
       id: course.id,
@@ -466,7 +476,7 @@ export class CoursesService {
       difficultyLevel: course.difficultyLevel,
       language: course.language,
       offersCertificate: course.offersCertificate,
-      category: course.categories?.[0]?.category.name ?? null,
+      category: categoryName,
       creator: {
         slug: course.creatorProfile.slug,
         displayName: course.creatorProfile.displayName,
@@ -503,7 +513,7 @@ export class CoursesService {
     );
 
     return {
-      ...this.toCourseSummary(course),
+      ...this.toCourseSummary(course, this.getPrimaryCategoryName(course)),
       description: course.description,
       trailerYoutubeId: course.trailerYoutubeId,
       previewMaterialsDescription: course.previewMaterialsDescription,
