@@ -78,6 +78,7 @@ jobs:
     needs: [monorepo]
     runs-on: ubuntu-latest
     env:
+      NODE_ENV: development
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
@@ -142,6 +143,7 @@ jobs:
     needs: [monorepo]
     runs-on: ubuntu-latest
     env:
+      NODE_ENV: development
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEB_PROJECT_ID }}
     steps:
