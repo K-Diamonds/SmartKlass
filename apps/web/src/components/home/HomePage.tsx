@@ -36,7 +36,7 @@ import { summaryToDisplayCourse } from '@/lib/catalog/course-display';
 import type { CourseDisplay, CreatorDisplay } from '@/lib/catalog/display-types';
 import { formatCoursePrice } from '@/lib/utils';
 
-const CATEGORIES = ['All', 'Culinary', 'Music', 'Design', 'Business'];
+const CATEGORIES = ['All', 'Design', 'Photography', 'Coding', 'Business', 'Music'];
 
 const TESTIMONIALS = [
   {

@@ -115,6 +115,14 @@ export class CoursesService {
           creatorProfile: {
             select: { slug: true, displayName: true },
           },
+          categories: {
+            take: 1,
+            include: {
+              category: {
+                select: { name: true },
+              },
+            },
+          },
         },
       }),
       this.prisma.course.count({ where }),
@@ -394,6 +402,14 @@ export class CoursesService {
       creatorProfile: {
         select: { slug: true, displayName: true },
       },
+      categories: {
+        take: 1,
+        include: {
+          category: {
+            select: { name: true },
+          },
+        },
+      },
       modules: {
         where: { deletedAt: null },
         include: {
@@ -431,6 +447,9 @@ export class CoursesService {
     course: Prisma.CourseGetPayload<{
       include: {
         creatorProfile: { select: { slug: true; displayName: true } };
+        categories?: {
+          include: { category: { select: { name: true } } };
+        };
       };
     }>,
   ): CourseSummaryDto {
@@ -447,6 +466,7 @@ export class CoursesService {
       difficultyLevel: course.difficultyLevel,
       language: course.language,
       offersCertificate: course.offersCertificate,
+      category: course.categories?.[0]?.category.name ?? null,
       creator: {
         slug: course.creatorProfile.slug,
         displayName: course.creatorProfile.displayName,

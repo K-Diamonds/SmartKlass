@@ -100,6 +100,7 @@ export type CourseSummary = {
   difficultyLevel: CourseDetail['difficultyLevel'];
   language: string;
   offersCertificate: boolean;
+  category?: string | null;
   creator: {
     slug: string;
     displayName: string;
@@ -138,11 +139,21 @@ function buildCoursesQuery(params: ListCoursesParams): string {
   return search.toString();
 }
 
-export function listPublishedCourses(
+export async function listPublishedCourses(
   params: ListCoursesParams = {},
 ): Promise<PaginatedCourses<CourseSummary>> {
   const query = buildCoursesQuery({ limit: 24, ...params });
-  return apiFetch<PaginatedCourses<CourseSummary>>(`/courses?${query}`);
+  const items = await apiFetchPaginated<CourseSummary>(`/courses?${query}`);
+
+  return {
+    items,
+    meta: {
+      page: params.page ?? 1,
+      limit: params.limit ?? 24,
+      total: items.length,
+      totalPages: 1,
+    },
+  };
 }
 
 export function getPublishedCourseById(courseId: string): Promise<CourseDetail> {

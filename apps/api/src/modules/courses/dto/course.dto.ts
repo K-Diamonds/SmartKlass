@@ -152,6 +152,7 @@ export class CourseSummaryDto {
   difficultyLevel!: CourseDifficultyLevel;
   language!: string;
   offersCertificate!: boolean;
+  category!: string | null;
   creator!: {
     slug: string;
     displayName: string;

@@ -11,6 +11,7 @@ export type CourseSummary = {
   difficultyLevel: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
   language: string;
   offersCertificate: boolean;
+  category?: string | null;
   creator: {
     slug: string;
     displayName: string;
@@ -55,7 +56,7 @@ export function summaryToDisplayCourse(
     lessonCount: 0,
     durationHours: course.estimatedHours ?? 0,
     level: LEVEL_MAP[course.difficultyLevel],
-    category: options?.category ?? 'General',
+    category: options?.category ?? course.category ?? 'General',
     priceFromCents: options?.priceFromCents ?? 0,
     billingInterval: 'monthly',
     hasMultiplePlans: false,
